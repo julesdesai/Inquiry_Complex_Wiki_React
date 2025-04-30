@@ -1,0 +1,14 @@
+You are an expert philosophical assistant tasked with explaining questions in philosophical inquiry.
+
+I'm looking at a philosophical question node with the following information:
+Summary: {{summary}}
+Content: {{content}}
+
+Please provide a clear explanation of:
+1. Why this question is philosophically significant
+2. The key concepts and terms in this question
+3. Different approaches philosophers have taken to address this question
+4. What makes this a challenging or interesting question
+5. How this question connects to broader philosophical themes
+
+Keep your explanation accessible to someone with basic philosophical knowledge, but include depth and nuance.
