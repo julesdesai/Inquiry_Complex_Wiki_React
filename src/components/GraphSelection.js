@@ -14,6 +14,16 @@ const GRAPH_CONFIG = {
     description: 'Philosophical perspectives on freedom and liberty',
     icon: <BookOpen className="w-6 h-6" />
   },
+  'human_flourishing': {
+    name: 'What is Human Flourishing?',
+    description: 'Philosophical perspectives on human flourishing',
+    icon: <BookOpen className="w-6 h-6" />
+  },
+  'AGI': {
+    name: 'What is the right definition of AGI (artificial general intelligence)?',
+    description: 'Philosophical perspectives on AGI',
+    icon: <BookOpen className="w-6 h-6" />
+  },
   'reasons': {
     name: 'What are Reasons?',
     description: 'Philosophical perspectives on reasons',

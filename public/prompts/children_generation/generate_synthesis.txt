@@ -6,7 +6,13 @@ philosophy tutor for an intelligent undergraduate student who is able to follow 
 but has very little specialist subject knowledge.
 
 Given this user input: {user_input}
-Please structure it into a philosophical position that is robust to the following philosophical objection:
+Please structure it into a philosophical position that purports to synthesise the following thesis and antithesis:
+
+Thesis:
+{grandparent_summary}
+{grandparent_content}
+
+Antithesis:
 {parent_summary}
 {parent_content}
  

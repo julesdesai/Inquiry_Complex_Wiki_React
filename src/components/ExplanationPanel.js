@@ -1,4 +1,4 @@
-// src/components/ExplanationPanel.js - With hashtag headings support
+// src/components/ExplanationPanel.js - With streaming support
 import React, { useState, useEffect, useRef } from 'react';
 import { X, BookOpen } from 'lucide-react';
 import explanationService from '../services/explanationService';
@@ -7,7 +7,11 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
   const [explanation, setExplanation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [streaming, setStreaming] = useState(false);
+  const [lastChunk, setLastChunk] = useState('');
   const panelRef = useRef(null);
+  const explanationEndRef = useRef(null);
+  const lastUpdateRef = useRef(null);
   
   // Handle clicking outside the panel to close it
   useEffect(() => {
@@ -28,8 +32,16 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
     if (!isOpen) {
       setExplanation('');
       setError(null);
+      setStreaming(false);
     }
   }, [isOpen]);
+  
+  // Scroll to bottom when new content is streamed
+  useEffect(() => {
+    if (streaming && explanationEndRef.current) {
+      explanationEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [explanation, streaming]);
   
   // Fetch explanation when panel is opened
   useEffect(() => {
@@ -37,6 +49,7 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
       setLoading(true);
       setExplanation('');
       setError(null);
+      setStreaming(true);
       
       // Add collection name to the node data for parent fetching
       const nodeWithCollection = {
@@ -44,13 +57,24 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
         collectionName: collectionName
       };
       
-      explanationService.fetchExplanation(nodeWithCollection)
-        .then(result => {
-          setExplanation(result);
+      // Handle streaming chunks of text
+      const handleChunk = (chunk) => {
+        setExplanation(prevText => prevText + chunk);
+        setLastChunk(chunk);
+        
+        // Create a timestamp to help the component know what content is new
+        lastUpdateRef.current = Date.now();
+      };
+      
+      explanationService.fetchExplanationStream(nodeWithCollection, handleChunk)
+        .then(() => {
+          // Stream completed
+          setStreaming(false);
         })
         .catch(err => {
           console.error('Error fetching explanation:', err);
           setError('Failed to load explanation. Please try again.');
+          setStreaming(false);
         })
         .finally(() => {
           setLoading(false);
@@ -90,6 +114,19 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
     processedText = processedText.replace(/<number value="(\d+)">\.\s+(.*?)$/gm, (match, num, content) => {
       return `<div class="numbered-item"><span class="number">${num}.</span> <span class="content">${content}</span></div>`;
     });
+    
+    // If we have a non-empty last chunk and we're still streaming, wrap the last
+    // instance of it with a special fade-in class
+    if (lastChunk && streaming && lastChunk.length > 0) {
+      // Escape special characters in the last chunk for regex safety
+      const escapedChunk = lastChunk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Find the last occurrence of the chunk and wrap it
+      const lastChunkRegex = new RegExp(`(${escapedChunk})(?![\\s\\S]*${escapedChunk})`, 'g');
+      if (lastChunkRegex.test(processedText)) {
+        processedText = processedText.replace(lastChunkRegex, '<span class="new-content">$1</span>');
+      }
+    }
     
     return processedText;
   };
@@ -135,7 +172,7 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
           )}
           
           <div className="prose prose-stone max-w-none">
-            {loading && (
+            {loading && !explanation && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-pulse text-stone-500">Writing explanation...</div>
               </div>
@@ -147,11 +184,20 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
               </div>
             )}
             
-            {!loading && !error && formattedExplanation && (
-              <div 
-                className="explanation-text"
-                dangerouslySetInnerHTML={createMarkup(formattedExplanation)}
-              />
+            {formattedExplanation && (
+              <>
+                <div 
+                  key={lastUpdateRef.current || 'initial'}
+                  className="explanation-text"
+                  dangerouslySetInnerHTML={createMarkup(formattedExplanation)}
+                />
+                {streaming && (
+                  <div className="h-6 mt-2 mb-6 relative">
+                    <span className="absolute left-0 fade-pulse">...</span>
+                  </div>
+                )}
+                <div ref={explanationEndRef} />
+              </>
             )}
           </div>
         </div>
@@ -164,8 +210,29 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
           to { transform: translateX(0); }
         }
         
+        @keyframes fadeAnimation {
+          0% { opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; }
+        }
+        
+        .fade-pulse {
+          animation: fadeAnimation 1.5s ease-in-out infinite;
+        }
+        
         .explanation-text {
           line-height: 1.7;
+        }
+        
+        /* Specific animation for the newest content */
+        .new-content {
+          animation: fadeIn 0.8s ease-in;
+          display: inline;
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         
         .explanation-text h3 {

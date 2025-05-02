@@ -1,4 +1,4 @@
-// src/services/explanationService.js - Complete with all updates
+// src/services/explanationService.js - With Streaming Support
 import { getNode } from '../firebase';
 
 /**
@@ -91,14 +91,15 @@ const fetchParentNodeData = async (parentId, collectionName) => {
 };
 
 /**
- * Fetches an explanation for the node
+ * Fetches an explanation for the node with streaming support
  * @param {Object} nodeData - The node data
- * @returns {Promise<string>} - The explanation text
+ * @param {Function} onChunk - Callback function to handle incoming text chunks
+ * @returns {Promise<string>} - The complete explanation text
  */
-export const fetchExplanation = async (nodeData) => {
+export const fetchExplanationStream = async (nodeData, onChunk) => {
   try {
     const { node_type: nodeType, parent_id: parentId } = nodeData;
-    const collectionName = nodeData.collectionName || 'nodes'; // Get collection name if passed
+    const collectionName = nodeData.collectionName || 'nodes';
     
     // Initialize parent and grandparent data
     let parentData = null;
@@ -121,26 +122,26 @@ export const fetchExplanation = async (nodeData) => {
     const filledPrompt = fillPromptTemplate(promptTemplate, nodeData, parentData, grandparentData);
     
     try {
-      // Try to use the API first
-      return await callOpenAIAPI(filledPrompt);
+      // Call the streaming API
+      return await callOpenAIAPIStream(filledPrompt, onChunk);
     } catch (apiError) {
-      console.warn('API call failed, falling back to simulated responses:', apiError);
-      // Fall back to simulated responses if the API call fails
-      return;
+      console.warn('API streaming call failed:', apiError);
+      throw apiError;
     }
   } catch (error) {
-    console.error('Error generating explanation:', error);
+    console.error('Error generating streaming explanation:', error);
     throw error;
   }
 };
 
 /**
- * Calls the OpenAI API directly from the client
+ * Calls the OpenAI API with streaming enabled
  * @param {string} prompt - The prompt to send to the API
- * @returns {Promise<string>} - The response from the API
+ * @param {Function} onChunk - Callback function to handle incoming text chunks
+ * @returns {Promise<string>} - The complete response from the API
  */
-const callOpenAIAPI = async (prompt) => {
-// Check if the API key is set in the environment variables
+const callOpenAIAPIStream = async (prompt, onChunk) => {
+  // Check if the API key is set in the environment variables
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
   
   if (!apiKey) {
@@ -149,20 +150,19 @@ const callOpenAIAPI = async (prompt) => {
   }
   
   try {
-    console.log('Calling OpenAI API with prompt length:', prompt.length);
+    console.log('Calling OpenAI API with streaming and prompt length:', prompt.length);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', { //for OpenAI explanation calls
-    //const response = await fetch('http://100.99.92.116:8080/chat/completions', {       //for ExoLabs 8-Bit Quantized Local explanation calls on 'James' mac studio;. Use TailScale and Seth's account to connect
-        method: 'POST',
-        headers: {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-        body: JSON.stringify({
-        model: 'gpt-4o', //gpt-4o for OpenAI. deepseek/deepseek-r1 for ExoLabs 8Bit Quantized Local
+      body: JSON.stringify({
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7
-        //max_tokens: 1000
+        temperature: 0.7,
+        stream: true // Enable streaming
       }),
     });
     
@@ -171,17 +171,76 @@ const callOpenAIAPI = async (prompt) => {
       throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
     }
     
-    const data = await response.json();
-    return data.choices[0].message.content;
+    // Create a reader from the response body stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let completeText = '';
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      
+      // Decode the chunk
+      const chunk = decoder.decode(value, { stream: true });
+      
+      // Process the SSE stream chunk
+      const lines = chunk.split('\n').filter(line => line.trim() !== '');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.substring(6);
+          
+          // Skip the [DONE] message
+          if (data === '[DONE]') continue;
+          
+          try {
+            const json = JSON.parse(data);
+            const content = json.choices[0]?.delta?.content || '';
+            
+            if (content) {
+              completeText += content;
+              // Call the onChunk callback with the new content
+              onChunk(content);
+            }
+          } catch (e) {
+            console.error('Error parsing streaming JSON:', e, data);
+          }
+        }
+      }
+    }
+    
+    return completeText;
   } catch (error) {
-    console.error('OpenAI API call failed:', error);
+    console.error('OpenAI API streaming call failed:', error);
     throw error;
   }
 };
 
+/**
+ * For backward compatibility - non-streaming version
+ */
+export const fetchExplanation = async (nodeData) => {
+  let fullText = '';
+  
+  try {
+    await fetchExplanationStream(nodeData, (chunk) => {
+      fullText += chunk;
+    });
+    
+    return fullText;
+  } catch (error) {
+    console.error('Error in non-streaming fetchExplanation:', error);
+    throw error;
+  }
+};
 
-export default {
+// Create a service object with all the exported functions
+const explanationService = {
   fetchExplanation,
+  fetchExplanationStream,
   getExplanationPrompt,
   fillPromptTemplate
 };
+
+// Export the service object as default
+export default explanationService;

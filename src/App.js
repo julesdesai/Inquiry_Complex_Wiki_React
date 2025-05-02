@@ -9,7 +9,9 @@ const ROOT_NODE_CONFIG = {
   'knowledge': '004d648a-1557-4549-8b22-fd1ae43fcd33', 
   'freedom': 'a5e92802-75b0-4c29-ad4f-f07d15889d15', 
   'reasons': 'afb54e2d-3b82-464a-80d1-f766da42395b' , 
-  'semantics': '069e0a67-8365-46b0-a5db-6c8013f18563' 
+  'semantics': '069e0a67-8365-46b0-a5db-6c8013f18563',
+  'human_flourishing': 'ed7c4c1a-0dae-4857-977a-f3af8295f2b4',
+  'AGI': 'af659166-31de-476b-aa91-66c7934a0b6a', 
 };
 
 const App = () => {

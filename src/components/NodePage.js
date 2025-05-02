@@ -329,6 +329,12 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
         return { icon: <Box className="w-4 h-4" />, color: 'bg-gray-50 text-gray-700 border-gray-200' };
     }
   };
+  
+  // Format node type for display
+  const formatNodeType = (type) => {
+    if (type === 'direct_reply') return 'Direct Reply';
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  };
 
   if (loading) {
     return (
@@ -365,7 +371,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
           <div className="flex items-center gap-3 text-sm">
             <span className={`px-3 py-1.5 rounded-full border flex items-center gap-2 ${nodeTypeInfo.color}`}>
               {nodeTypeInfo.icon}
-              {node.node_type.charAt(0).toUpperCase() + node.node_type.slice(1)}
+              {formatNodeType(node.node_type)}
             </span>
             <span className="px-3 py-1.5 bg-stone-100 text-stone-700 rounded-full border border-stone-200">
               Depth: {node.depth}
@@ -424,7 +430,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
         <div className="bg-white rounded-lg shadow-sm p-8 mb-6 border border-stone-100">
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
             <div>
-              <h2 className="text-2xl font-semibold text-stone-800">Content</h2>
+              <h2 className="text-2xl font-semibold text-stone-800">Basic Structure</h2>
               {node.averageRating > 0 && node.node_type !== 'question' && (
                 <div className="mt-2 bg-stone-50 border border-stone-200 rounded-md px-3 py-1.5 inline-flex items-center gap-2">
                   <Star className={`w-4 h-4 ${node.averageRating > 75 ? 'text-yellow-500' : node.averageRating > 50 ? 'text-yellow-400' : 'text-stone-500'}`} />
@@ -566,7 +572,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
                   'synthesis': count > 1 ? 'Syntheses' : 'Synthesis',
                   'direct_reply': count > 1 ? 'Direct Replies' : 'Direct Reply'
                 };
-                return titles[type] || type;
+                return titles[type] || formatNodeType(type);
               };
               
               return (

@@ -6,11 +6,9 @@ philosophy tutor for an intelligent undergraduate student who is able to follow 
 but has very little specialist subject knowledge.
 
 Given this user input: {user_input}
-Please structure it into a 'direct reply' related to the following philosophical objection:
-{parent_summary}
-{parent_content}
+Please structure it into a 'direct reply'.
 
- By a direct reply we mean a response that handles the objection by any of the following means:
+By a direct reply we mean a response that handles the objection by any of the following means:
 
 (Distinction making) The response distinguishes multiple senses of key terms in either the objection of the theory and makes the case that on the correct disambiguation, the objection loses its force.
 
@@ -89,8 +87,9 @@ Requirements:
 
 Only generate items following this EXACT format.
 
+The original position is as follows: {grandparent_summary} {grandparent_content}
 The objection is as follows: {parent_summary} {parent_content}
 
 The user input is: {user_input}
 
-Please structure this as a direct reply.
+Please structure this user input as a direct reply to the objection, which itself was an objection to the original position.

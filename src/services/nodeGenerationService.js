@@ -27,13 +27,12 @@ export const getGenerationPrompt = async (nodeType) => {
 /**
  * Fills the prompt template with node data including parent and grandparent information
  * @param {string} promptTemplate - The prompt template
- * @param {Object} nodeData - The node data
- * @param {Object|null} parentData - The parent node data (if available)
- * @param {Object|null} grandparentData - The grandparent node data (if available)
+ * @param {Object} nodeData - The node data (parent node in the hierarchy)
+ * @param {Object|null} parentData - The parent's parent data (grandparent node)
  * @param {string} userInput - The user's input text
  * @returns {string} - The filled prompt
  */
-export const fillPromptTemplate = (promptTemplate, nodeData, parentData = null, grandparentData = null, userInput = '') => {
+export const fillPromptTemplate = (promptTemplate, nodeData, parentData = null, userInput = '') => {
   const { summary, content } = nodeData;
   
   let filledPrompt = promptTemplate
@@ -45,8 +44,8 @@ export const fillPromptTemplate = (promptTemplate, nodeData, parentData = null, 
   if (filledPrompt.includes('{grandparent_summary}') || filledPrompt.includes('{grandparent_content}')) {
     if (parentData && parentData.summary && parentData.content) {
       filledPrompt = filledPrompt
-        .replace(/\{grandparent_summary\}/g, parentData.summary)
-        .replace(/\{grandparent_content\}/g, parentData.content);
+        .replace(/\{grandparent_summary\}/g, parentData.summary || '')
+        .replace(/\{grandparent_content\}/g, parentData.content || '');
     } else {
       filledPrompt = filledPrompt
         .replace(/\{grandparent_summary\}/g, 'Not available')
@@ -149,7 +148,7 @@ export const getPossibleChildNodeTypes = (parentNodeType) => {
     case 'antithesis':
       return ['synthesis', 'direct_reply'];
     case 'synthesis':
-      return ['direct_reply'];
+      return ['antithesis'];  // Only antithesis for synthesis nodes
     default:
       return [];
   }

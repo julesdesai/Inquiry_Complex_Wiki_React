@@ -113,6 +113,7 @@ const NodeCreationInterface = ({ node, collectionName, onSuccess }) => {
   
   // Format node type name for display
   const formatNodeType = (type) => {
+    if (type === 'direct_reply') return 'Direct Reply';
     return type.charAt(0).toUpperCase() + type.slice(1);
   };
   
@@ -174,7 +175,7 @@ const NodeCreationInterface = ({ node, collectionName, onSuccess }) => {
       {/* User Input */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-stone-700 mb-1">
-          Your Content:
+          Your Idea:
         </label>
         <textarea
           ref={textAreaRef}
