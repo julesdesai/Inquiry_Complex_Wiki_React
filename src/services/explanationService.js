@@ -151,17 +151,18 @@ const callOpenAIAPI = async (prompt) => {
   try {
     console.log('Calling OpenAI API with prompt length:', prompt.length);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', { //for OpenAI explanation calls
+    //const response = await fetch('http://100.99.92.116:8080/chat/completions', {       //for ExoLabs 8-Bit Quantized Local explanation calls on 'James' mac studio;. Use TailScale and Seth's account to connect
+        method: 'POST',
+        headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
-      body: JSON.stringify({
-        model: 'gpt-4o',
+        body: JSON.stringify({
+        model: 'gpt-4o', //gpt-4o for OpenAI. deepseek/deepseek-r1 for ExoLabs 8Bit Quantized Local
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1000
+        temperature: 0.7
+        //max_tokens: 1000
       }),
     });
     

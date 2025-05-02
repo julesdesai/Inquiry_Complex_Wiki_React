@@ -1,11 +1,14 @@
+// src/components/NodePage.js
 import React, { useState, useEffect } from 'react';
-import { Upload, X, ChevronRight, ArrowUp, ArrowDown, BookOpen, Layers, Box, HelpCircle, MessageCircle, GitBranch, ArrowRight, Clipboard, Image, Star, AlertCircle } from 'lucide-react';
+import { Upload, X, ChevronRight, ArrowUp, ArrowDown, BookOpen, Layers, Box, HelpCircle, MessageCircle, GitBranch, ArrowRight, Clipboard, Image, Star, AlertCircle, Plus } from 'lucide-react';
 import { getNode, getChildNodes, uploadImage, getNodeImages, updateNodeRating } from '../firebase';
 import { getFilledPromptTemplate } from '../services/promptService';
 import { generateAndUploadImage } from '../services/imageGenerationService';
 import Toast from './CopyToast'; // Updated component name
 import ExplanationPanel from './ExplanationPanel';
 import RatingSlider from './RatingSlider';
+import NodeCreationInterface from './NodeCreationInterface';
+import SourceTag from './SourceTag';
 
 const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
   // Basic node data
@@ -203,7 +206,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
     }
   };
   
-  // New function to handle image generation
+  // Function to handle image generation
   const handleGenerateImage = async () => {
     try {
       setGenerating(true);
@@ -235,7 +238,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
     }
   };
 
-  // New function to handle rating submission with multi-user support
+  // Handle rating submission with multi-user support
   const handleRatingSubmit = async (rating) => {
     try {
       setRatingSubmitting(true);
@@ -280,6 +283,31 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
     } finally {
       setRatingSubmitting(false);
     }
+  };
+  
+  // Handler for when children are generated successfully
+  const handleChildrenGenerated = (newChildren) => {
+    if (!newChildren || newChildren.length === 0) return;
+    
+    // Update the child nodes in state
+    setChildNodes(prevChildren => {
+      // Combine with existing children and sort
+      const allChildren = [...prevChildren, ...newChildren].sort((a, b) => {
+        const typeOrder = ['question', 'thesis', 'reason', 'antithesis', 'synthesis', 'direct_reply'];
+        return typeOrder.indexOf(a.node_type) - typeOrder.indexOf(b.node_type);
+      });
+      
+      return allChildren;
+    });
+    
+    // Get the icon for the generated node type
+    const nodeType = newChildren[0].node_type;
+    const typeInfo = getNodeTypeInfo(nodeType);
+    
+    // Show a toast notification
+    setToastMessage(`Generated ${newChildren.length} ${nodeType} node${newChildren.length > 1 ? 's' : ''} successfully!`);
+    setToastIcon(() => typeInfo.icon || <Plus className="w-4 h-4" />);
+    setShowToast(true);
   };
   
   // Node type icons and colors
@@ -342,6 +370,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
             <span className="px-3 py-1.5 bg-stone-100 text-stone-700 rounded-full border border-stone-200">
               Depth: {node.depth}
             </span>
+            <SourceTag userGenerated={node.user_generated} />
           </div>
         </div>
 
@@ -429,12 +458,21 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
             {node.content.split('},').map((proposition, index) => (
               <div key={index} className="mb-3 p-4 bg-stone-50 rounded-lg border border-stone-100">
                 <p className="text-stone-700 leading-relaxed">
-                  {proposition.replace('{', '').replace('}', '')}
+                  {proposition.replace(/[{}]/g, '').trim()}
                 </p>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Node Creation Interface - hidden for terminal nodes and terminal node types */}
+        {!node.terminal && !['reason', 'direct_reply'].includes(node.node_type) && (
+          <NodeCreationInterface
+            node={node}
+            collectionName={collectionName}
+            onSuccess={handleChildrenGenerated}
+          />
+        )}
 
         {/* Image Gallery */}
         <div className="bg-white rounded-lg shadow-sm p-8 mb-6 border border-stone-100">
@@ -546,7 +584,10 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
                         onClick={() => onNavigate(child.id)}
                         className="w-full text-left p-4 bg-stone-50 hover:bg-stone-100 rounded-lg border border-stone-100 flex justify-between items-center group transition"
                       >
-                        <span className="text-stone-700">{child.summary}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-stone-700">{child.summary}</span>
+                          <SourceTag userGenerated={child.user_generated} />
+                        </div>
                         <ChevronRight className="w-4 h-4 text-stone-400 group-hover:text-stone-600 transition" />
                       </button>
                     ))}
@@ -556,6 +597,13 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
             })}
           </div>
         ) : null}
+      </div>
+
+      {/* Debug Info - Node UUID */}
+      <div className="w-full text-center pb-3">
+        <span className="text-xs text-stone-300 select-all font-mono">
+          {node.id}
+        </span>
       </div>
 
       {/* Upload Modal */}
@@ -651,7 +699,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
       <ExplanationPanel
         isOpen={showExplanationPanel}
         onClose={() => setShowExplanationPanel(false)}
-        nodeData={node}
+        nodeData={{...node, collectionName}} // Pass collection name to explanation panel
         collectionName={collectionName}
       />
     </div>
