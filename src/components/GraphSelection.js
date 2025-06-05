@@ -44,10 +44,28 @@ const TEXT_GRAPH_CONFIG = {
     description: 'Lewis on the asymmetry of counterfactuals and time',
     icon: <BookOpen className="w-6 h-6" />
   },
-  'frankfurt-alternate-possibilities-and_moral-responsibility': {
+  'frankfurt-alternate-possibilities': {
     name: 'Alternate Possibilities and Moral Responsibility',
     author: 'Harry Frankfurt',
     description: 'Frankfurt on moral responsibility without alternate possibilities',
+    icon: <BookOpen className="w-6 h-6" />
+  },
+  'plato-sophist': {
+    name: 'The Sophist',
+    author: 'Plato',
+    description: 'Plato on philosophy, sophistry, language and dialogue',
+    icon: <BookOpen className="w-6 h-6" />
+  },
+  'shanahan-simulacra': {
+    name: 'Simulacra as Conscious Exotica',
+    author: 'Murray Shanahan',
+    description: 'Shanahan on consciousness and other forms of mentality in AI systems, and the embodied nature of language',
+    icon: <BookOpen className="w-6 h-6" />
+  },
+  'williams-moral-luck': {
+    name: 'Moral Luck',
+    author: 'Bernard Williams',
+    description: 'Bernard Williams on moral luck and the implications for moral responsibility',
     icon: <BookOpen className="w-6 h-6" />
   }
 };

@@ -12,7 +12,11 @@ const ROOT_NODE_CONFIG = {
   'semantics': '069e0a67-8365-46b0-a5db-6c8013f18563',
   'human_flourishing': 'ed7c4c1a-0dae-4857-977a-f3af8295f2b4',
   'AGI': 'af659166-31de-476b-aa91-66c7934a0b6a', 
-  'lewis-counterfactual-dependence-times-arrow': 'a240deac-w532-714f-5983-6f8w9d9d1pdq'
+  'lewis-counterfactual-dependence-times-arrow': 'a240deac-w532-714f-5983-6f8w9d9d1pdq',
+  'frankfurt-alternate-possibilities': '4a1456eb-4265-4a26-aw4j-60c7d1d25d24',
+  'plato-sophist': '1122f3d5-ea0f-4136-8a8e-4c494aaa1e20',
+  'shanahan-simulacra': '44de1re6-1542-4216-bf55-sg156111fgf8',
+  'williams-moral-luck': 'w156cf22-1b5b-11c8-b6aa-dw135d59y7d6'
 };
 
 const App = () => {
