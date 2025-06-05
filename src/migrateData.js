@@ -39,7 +39,7 @@ const migrateJsonToFirestore = async (jsonData) => {
       
       // Add documents to current batch
       for (const [id, nodeData] of chunk) {
-        const docRef = doc(db, 'AGI', id);
+        const docRef = doc(db, 'lewis-counterfactual-dependence-times-arrow', id);
         batch.set(docRef, nodeData);
       }
       
@@ -94,7 +94,7 @@ const migrateOneByOne = async (jsonData) => {
   for (let i = 0; i < nodes.length; i++) {
     const [id, nodeData] = nodes[i];
     try {
-      const docRef = doc(db, 'AGI', id);
+      const docRef = doc(db, 'lewis-counterfactual-dependence-times-arrow', id);
       await docRef.set(nodeData);
       successCount++;
       
@@ -112,7 +112,7 @@ const migrateOneByOne = async (jsonData) => {
 
 // Main function with options
 const runMigration = async () => {
-  const filePath = process.argv[2] || path.join(process.cwd(), 'data', 'what_is_AGI.json');
+  const filePath = process.argv[2] || path.join(process.cwd(), 'data', 'lewis-counterfactuals-time.json');
   const method = process.argv[3] || 'batch'; // 'batch' or 'single'
   
   try {

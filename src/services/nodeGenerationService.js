@@ -90,15 +90,15 @@ const callOpenAIAPI = async (prompt) => {
   try {
     console.log('Calling OpenAI API with prompt length:', prompt.length);
     
-    //const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    const response = await fetch('http://mike:8080/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    //const response = await fetch('http://mike:8080/v1/chat/completions', { EXOLABS LOCAL DEEPSEEK R1
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-r1',
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
       }),

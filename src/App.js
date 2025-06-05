@@ -12,6 +12,7 @@ const ROOT_NODE_CONFIG = {
   'semantics': '069e0a67-8365-46b0-a5db-6c8013f18563',
   'human_flourishing': 'ed7c4c1a-0dae-4857-977a-f3af8295f2b4',
   'AGI': 'af659166-31de-476b-aa91-66c7934a0b6a', 
+  'lewis-counterfactual-dependence-times-arrow': 'a240deac-w532-714f-5983-6f8w9d9d1pdq'
 };
 
 const App = () => {
@@ -86,7 +87,7 @@ const App = () => {
         
         // If we get here, we couldn't find the configured root node
         if (isMounted) {
-          setError(`Could not find the starting node for ${selectedGraph}.`);
+          setError(`Could not find the starting node: ${rootNodeId} for graph: ${selectedGraph}.`);
           setLoading(false);
           clearTimeout(timeoutId);
         }
