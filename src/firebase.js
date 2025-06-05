@@ -1,9 +1,8 @@
 // src/firebase.js
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, getDocs, updateDoc, collection, query, where, writeBatch, arrayUnion } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, getDocs, updateDoc, collection, query, where, writeBatch, deleteField } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
-
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
@@ -124,75 +123,470 @@ export const migrateJsonToFirestore = async (jsonData, collectionName = 'nodes')
 };
 
 /**
- * Updates a node's rating by adding a new user rating to the ratings array
- * and recalculating the average rating
- * 
- * @param {string} nodeId - The ID of the node to update
- * @param {number} rating - The rating value (0-100)
- * @param {string} userId - The ID of the user submitting the rating
- * @param {string} collectionName - The collection name (dynamically set based on the selected graph)
- * @returns {Promise<{averageRating: number, totalRatings: number}>} - The updated average rating and total count
+ * Updates a node's human rating
+ * @param {string} nodeId - Node ID
+ * @param {number} rating - Rating value (0-100)
+ * @param {string} userId - User ID
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<Object>} - The updated rating data
  */
-export const updateNodeRating = async (nodeId, rating, userId = 'anonymous', collectionName) => {
+export const updateHumanRating = async (nodeId, rating, userId = 'anonymous', collectionName = 'nodes') => {
   try {
-    console.log(`Updating rating for node ${nodeId} in collection ${collectionName} to ${rating}`);
-    const docRef = doc(db, collectionName, nodeId);
+    console.log(`Updating human rating for node ${nodeId} in collection ${collectionName}`);
     
-    // First, get the current document to check if ratings exist
-    const docSnap = await getDoc(docRef);
-    const docData = docSnap.data();
+    // Initialize Firestore if needed
+    if (!db) throw new Error("Firestore not initialized");
     
-    // Initialize our ratings structure if it doesn't exist
-    let ratings = docData.ratings || [];
-    let userRatingIndex = ratings.findIndex(r => r.userId === userId);
+    // Get a reference to the node document
+    const nodeRef = doc(db, collectionName, nodeId);
     
-    // If user has already rated, update their rating, otherwise add new rating
-    if (userRatingIndex >= 0) {
-      // Create a new array with the updated rating
-      const newRatings = [...ratings];
-      newRatings[userRatingIndex] = { userId, rating, timestamp: new Date() };
-      
-      // Update the document with the new ratings array
-      await updateDoc(docRef, {
-        ratings: newRatings,
-        averageRating: calculateAverageRating(newRatings),
-        totalRatings: newRatings.length
-      });
-    } else {
-      // Add new rating to the array
-      const newRating = { userId, rating, timestamp: new Date() };
-      const newRatings = [...ratings, newRating];
-      
-      // Update the document with the new ratings array
-      await updateDoc(docRef, {
-        ratings: arrayUnion(newRating),
-        averageRating: calculateAverageRating(newRatings),
-        totalRatings: newRatings.length
-      });
+    // Get the current node data
+    const nodeSnap = await getDoc(nodeRef);
+    
+    if (!nodeSnap.exists()) {
+      throw new Error(`Node ${nodeId} not found`);
     }
     
-    // Calculate the new average
-    const updatedDocSnap = await getDoc(docRef);
-    const updatedData = updatedDocSnap.data();
+    const nodeData = nodeSnap.data();
+    
+    // Initialize humanRatings map if it doesn't exist
+    const humanRatings = nodeData.humanRatings || {};
+    
+    // Add or update the user's rating
+    humanRatings[userId] = {
+      rating,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Calculate the human average
+    const ratings = Object.values(humanRatings).map(r => r.rating);
+    const humanAverage = ratings.length > 0 
+      ? Math.round(ratings.reduce((sum, r) => sum + r, 0) / ratings.length) 
+      : 0;
+    
+    // Calculate the combined average (including AI if it exists)
+    let combinedAverage = humanAverage;
+    if (nodeData.aiRating !== undefined) {
+      combinedAverage = Math.round((humanAverage * ratings.length + nodeData.aiRating) / (ratings.length + 1));
+    }
+    
+    // Prepare the update data
+    const updateData = {
+      humanRatings,
+      humanAverageRating: humanAverage,
+      humanRatingCount: Object.keys(humanRatings).length,
+      averageRating: combinedAverage,
+      totalRatingCount: nodeData.aiRating !== undefined ? Object.keys(humanRatings).length + 1 : Object.keys(humanRatings).length,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Update the document
+    await updateDoc(nodeRef, updateData);
     
     return {
-      averageRating: updatedData.averageRating,
-      totalRatings: updatedData.totalRatings
+      averageRating: combinedAverage,
+      humanAverageRating: humanAverage,
+      humanRatingCount: Object.keys(humanRatings).length,
+      totalRatingCount: updateData.totalRatingCount,
+      aiRating: nodeData.aiRating
     };
   } catch (error) {
-    console.error(`Error updating node rating in collection ${collectionName}:`, error);
+    console.error(`Error updating human rating for node ${nodeId}:`, error);
     throw error;
   }
 };
 
 /**
- * Calculates the average rating from an array of ratings
- * @param {Array} ratings - Array of rating objects with rating property
- * @returns {number} - The average rating rounded to 1 decimal place
+ * Updates a node's AI rating
+ * @param {string} nodeId - Node ID
+ * @param {number} rating - Rating value (0-100)
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<Object>} - The updated rating data
  */
-function calculateAverageRating(ratings) {
-  if (!ratings || ratings.length === 0) return 0;
+export const updateAIRating = async (nodeId, rating, collectionName = 'nodes') => {
+  try {
+    console.log(`Updating AI rating for node ${nodeId} in collection ${collectionName} to ${rating}`);
+    
+    // Initialize Firestore if needed
+    if (!db) throw new Error("Firestore not initialized");
+    
+    // Get a reference to the node document
+    const nodeRef = doc(db, collectionName, nodeId);
+    
+    // Get the current node data
+    const nodeSnap = await getDoc(nodeRef);
+    
+    if (!nodeSnap.exists()) {
+      throw new Error(`Node ${nodeId} not found`);
+    }
+    
+    const nodeData = nodeSnap.data();
+    
+    // Calculate the human average
+    const humanRatings = nodeData.humanRatings || {};
+    const ratings = Object.values(humanRatings).map(r => r.rating);
+    const humanAverage = ratings.length > 0 
+      ? Math.round(ratings.reduce((sum, r) => sum + r, 0) / ratings.length) 
+      : 0;
+    
+    // Calculate the combined average
+    const combinedAverage = ratings.length > 0 
+      ? Math.round((humanAverage * ratings.length + rating) / (ratings.length + 1)) 
+      : rating;
+    
+    // Prepare the update data
+    const updateData = {
+      aiRating: rating,
+      aiRatingTimestamp: new Date().toISOString(),
+      averageRating: combinedAverage,
+      totalRatingCount: Object.keys(humanRatings).length + 1,
+      hasAiRating: true,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Update the document
+    await updateDoc(nodeRef, updateData);
+    
+    return {
+      averageRating: combinedAverage,
+      humanAverageRating: humanAverage,
+      humanRatingCount: Object.keys(humanRatings).length,
+      totalRatingCount: updateData.totalRatingCount,
+      aiRating: rating
+    };
+  } catch (error) {
+    console.error(`Error updating AI rating for node ${nodeId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Gets the AI rating for a node
+ * @param {string} nodeId - Node ID
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<{hasRating: boolean, rating: number|null}>} - Whether the node has an AI rating and the rating value
+ */
+export const getAIRating = async (nodeId, collectionName = 'nodes') => {
+  try {
+    if (!nodeId) {
+      console.log('No nodeId provided to getAIRating');
+      return { hasRating: false, rating: null };
+    }
+    
+    console.log(`Checking AI rating for node: ${nodeId} in collection: ${collectionName}`);
+    
+    // Get the node data
+    const nodeData = await getNode(nodeId, collectionName);
+    
+    if (!nodeData) {
+      console.warn(`Node ${nodeId} not found in collection ${collectionName}`);
+      return { hasRating: false, rating: null };
+    }
+    
+    const hasRating = nodeData.aiRating !== undefined;
+    
+    console.log(`AI rating for node ${nodeId}: ${hasRating ? nodeData.aiRating : 'none'}`);
+    
+    return {
+      hasRating,
+      rating: hasRating ? nodeData.aiRating : null
+    };
+  } catch (error) {
+    console.error(`Error checking AI rating for node ${nodeId}:`, error);
+    return { hasRating: false, rating: null };
+  }
+};
+
+/**
+ * Gets the human rating for a specific user on a node
+ * @param {string} nodeId - Node ID
+ * @param {string} userId - User ID
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<number|null>} - The user's rating or null if not found
+ */
+export const getUserRating = async (nodeId, userId, collectionName = 'nodes') => {
+  try {
+    // Get the node data
+    const nodeData = await getNode(nodeId, collectionName);
+    
+    if (!nodeData || !nodeData.humanRatings || !nodeData.humanRatings[userId]) {
+      return null;
+    }
+    
+    return nodeData.humanRatings[userId].rating;
+  } catch (error) {
+    console.error(`Error getting user rating for node ${nodeId}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Migrates a node's ratings from any previous format to the new format
+ * @param {string} nodeId - Node ID
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<boolean>} - Whether the migration was successful
+ */
+export const migrateNodeRatings = async (nodeId, collectionName = 'nodes') => {
+  try {
+    console.log(`Migrating ratings for node ${nodeId} in collection ${collectionName}`);
+    
+    // Get a reference to the node document
+    const nodeRef = doc(db, collectionName, nodeId);
+    
+    // Get the current node data
+    const nodeSnap = await getDoc(nodeRef);
+    
+    if (!nodeSnap.exists()) {
+      console.warn(`Node ${nodeId} not found, skipping migration`);
+      return false;
+    }
+    
+    const nodeData = nodeSnap.data();
+    let needsMigration = false;
+    let aiRating = null;
+    
+    // Initialize the new rating structure
+    const humanRatings = {};
+    
+    // Check if we have the old array-based format
+    if (Array.isArray(nodeData.ratings)) {
+      needsMigration = true;
+      console.log(`Node ${nodeId} has old array-based ratings format`);
+      
+      // Convert array ratings to the new structure
+      nodeData.ratings.forEach(rating => {
+        if (rating.userId === 'ai_rating_system') {
+          aiRating = rating.rating;
+        } else {
+          humanRatings[rating.userId] = {
+            rating: rating.rating,
+            timestamp: rating.timestamp?.toDate?.() || new Date().toISOString()
+          };
+        }
+      });
+    }
+    // Check if we have the old map-based format
+    else if (nodeData.ratings && typeof nodeData.ratings === 'object') {
+      needsMigration = true;
+      console.log(`Node ${nodeId} has old map-based ratings format`);
+      
+      // Convert map ratings to the new structure
+      Object.entries(nodeData.ratings).forEach(([userId, rating]) => {
+        if (userId === 'ai_rating_system') {
+          aiRating = rating;
+        } else {
+          humanRatings[userId] = {
+            rating,
+            timestamp: new Date().toISOString()
+          };
+        }
+      });
+    }
+    
+    // Skip if already using the new format or has no ratings
+    if (!needsMigration) {
+      console.log(`Node ${nodeId} already using the new format or has no ratings`);
+      return false;
+    }
+    
+    // Calculate the human average
+    const ratings = Object.values(humanRatings).map(r => r.rating);
+    const humanAverage = ratings.length > 0 
+      ? Math.round(ratings.reduce((sum, r) => sum + r, 0) / ratings.length) 
+      : 0;
+    
+    // Calculate the combined average
+    let combinedAverage = humanAverage;
+    if (aiRating !== null) {
+      combinedAverage = ratings.length > 0 
+        ? Math.round((humanAverage * ratings.length + aiRating) / (ratings.length + 1)) 
+        : aiRating;
+    }
+    
+    // Prepare the update data
+    const updateData = {
+      // Remove old ratings structures
+      ratings: deleteField(),
+      
+      // Add new ratings structures
+      humanRatings,
+      humanAverageRating: humanAverage,
+      humanRatingCount: Object.keys(humanRatings).length,
+      averageRating: combinedAverage,
+      totalRatingCount: aiRating !== null ? Object.keys(humanRatings).length + 1 : Object.keys(humanRatings).length,
+      hasAiRating: aiRating !== null,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Add AI rating if it exists
+    if (aiRating !== null) {
+      updateData.aiRating = aiRating;
+      updateData.aiRatingTimestamp = new Date().toISOString();
+    }
+    
+    // Update the document
+    await updateDoc(nodeRef, updateData);
+    
+    console.log(`Successfully migrated ratings for node ${nodeId}`);
+    return true;
+  } catch (error) {
+    console.error(`Error migrating ratings for node ${nodeId}:`, error);
+    return false;
+  }
+};
+
+/**
+ * Migrates all nodes in a collection from old rating format to new rating format
+ * @param {string} collectionName - Collection name
+ * @returns {Promise<{total: number, migrated: number, failed: number}>} - Migration stats
+ */
+export const migrateAllNodeRatings = async (collectionName = 'nodes') => {
+  try {
+    console.log(`Migrating all node ratings in collection ${collectionName}`);
+    
+    // Get all documents in the collection
+    const querySnapshot = await getDocs(collection(db, collectionName));
+    
+    const stats = {
+      total: querySnapshot.size,
+      migrated: 0,
+      failed: 0
+    };
+    
+    // Process each document in batches to avoid overwhelming Firebase
+    const batchSize = 10;
+    const batches = [];
+    
+    for (let i = 0; i < querySnapshot.docs.length; i += batchSize) {
+      const batch = querySnapshot.docs.slice(i, i + batchSize);
+      batches.push(batch);
+    }
+    
+    // Process each batch sequentially
+    for (const [index, batch] of batches.entries()) {
+      console.log(`Processing batch ${index + 1}/${batches.length}`);
+      
+      // Process documents in the batch concurrently
+      const results = await Promise.all(
+        batch.map(async (docSnap) => {
+          const success = await migrateNodeRatings(docSnap.id, collectionName);
+          return { id: docSnap.id, success };
+        })
+      );
+      
+      // Update stats
+      results.forEach(result => {
+        if (result.success) {
+          stats.migrated++;
+        } else {
+          stats.failed++;
+        }
+      });
+    }
+    
+    console.log(`Migration complete: ${stats.migrated}/${stats.total} nodes migrated, ${stats.failed} failed`);
+    return stats;
+  } catch (error) {
+    console.error(`Error migrating all node ratings:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Debugging helper to inspect a node's ratings
+ * @param {string} nodeId - Node ID
+ * @param {string} collectionName - Collection name
+ */
+export const debugNodeRatings = async (nodeId, collectionName = 'nodes') => {
+  try {
+    console.group(`%cDebugging node ratings for ${nodeId}`, 'color: blue; font-weight: bold');
+    
+    // Get the node data
+    const nodeData = await getNode(nodeId, collectionName);
+    
+    if (!nodeData) {
+      console.warn(`Node ${nodeId} not found`);
+      console.groupEnd();
+      return;
+    }
+    
+    console.log('Node data:', nodeData);
+    
+    // Check for new rating format
+    if (nodeData.humanRatings || nodeData.aiRating !== undefined) {
+      console.log('Using new rating format');
+      console.log('Human ratings:', nodeData.humanRatings || {});
+      console.log('AI rating:', nodeData.aiRating);
+      console.log('Human average:', nodeData.humanAverageRating);
+      console.log('Combined average:', nodeData.averageRating);
+      console.log('Human count:', nodeData.humanRatingCount);
+      console.log('Total count:', nodeData.totalRatingCount);
+    } 
+    // Check for old ratings
+    else if (nodeData.ratings) {
+      console.log('Using old rating format');
+      console.log('Ratings data:', nodeData.ratings);
+      
+      if (Array.isArray(nodeData.ratings)) {
+        console.log('Ratings format: Array');
+        
+        // Check for AI rating
+        const aiRating = nodeData.ratings.find(r => r.userId === 'ai_rating_system');
+        console.log('AI rating:', aiRating);
+        
+        // Group ratings by userId
+        const ratingsByUser = {};
+        nodeData.ratings.forEach(r => {
+          ratingsByUser[r.userId] = ratingsByUser[r.userId] || [];
+          ratingsByUser[r.userId].push(r);
+        });
+        
+        // Check for duplicate users
+        const duplicateUsers = Object.entries(ratingsByUser)
+          .filter(([_, ratings]) => ratings.length > 1)
+          .map(([userId, ratings]) => ({
+            userId,
+            count: ratings.length,
+            ratings: ratings.map(r => r.rating)
+          }));
+        
+        if (duplicateUsers.length > 0) {
+          console.warn('Found duplicate user ratings:', duplicateUsers);
+        } else {
+          console.log('No duplicate user ratings found');
+        }
+      } else {
+        console.log('Ratings format: Object');
+        console.log('AI rating:', nodeData.ratings['ai_rating_system']);
+      }
+    } else {
+      console.log('No ratings found');
+    }
+    
+    console.groupEnd();
+  } catch (error) {
+    console.error(`Error debugging node ratings:`, error);
+    console.groupEnd();
+  }
+};
+
+// Add global window functions for debugging in browser console
+if (typeof window !== 'undefined') {
+  window.debugNodeRatings = (nodeId, collectionName = 'nodes') => {
+    debugNodeRatings(nodeId, collectionName).catch(console.error);
+  };
   
-  const sum = ratings.reduce((total, ratingObj) => total + ratingObj.rating, 0);
-  return Math.round((sum / ratings.length) * 10) / 10; // Round to 1 decimal
+  window.migrateNodeRatings = (nodeId, collectionName = 'nodes') => {
+    migrateNodeRatings(nodeId, collectionName)
+      .then(success => console.log(`Migration ${success ? 'successful' : 'not needed'}`))
+      .catch(console.error);
+  };
+  
+  window.migrateAllNodeRatings = (collectionName = 'nodes') => {
+    migrateAllNodeRatings(collectionName)
+      .then(stats => console.log('Migration stats:', stats))
+      .catch(console.error);
+  };
+  
+  console.log('Rating debugging and migration tools added to window object');
 }

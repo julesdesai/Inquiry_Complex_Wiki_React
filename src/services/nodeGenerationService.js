@@ -83,21 +83,22 @@ const callOpenAIAPI = async (prompt) => {
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
   
   if (!apiKey) {
-    console.error('API key not found. Please set OPENAI_API_KEY in your environment variables.');
+    console.error('API key not found. Please set REACT_APP_OPENAI_API_KEY in your environment variables.');
     throw new Error('API key not configured');
   }
   
   try {
     console.log('Calling OpenAI API with prompt length:', prompt.length);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    //const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('http://mike:8080/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'deepseek/deepseek-r1',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7
       }),

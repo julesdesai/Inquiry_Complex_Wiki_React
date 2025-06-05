@@ -1,8 +1,10 @@
 // src/services/imageGenerationService.js
 import { uploadImage } from '../firebase';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
 
 /**
- * Generates an image using OpenAI's API and uploads it to Firebase
+ * Generates an image using OpenAI's API, uploads it to Firebase,
+ * and updates the document with has_image=true
  * @param {string} nodeId - The ID of the node to associate the image with
  * @param {string} prompt - The prompt to generate the image from
  * @param {string} collectionName - The collection name in Firebase
@@ -70,7 +72,18 @@ export const generateAndUploadImage = async (nodeId, prompt, collectionName = 'n
     const file = new File([blob], filename, { type: 'image/png' });
     
     // Upload the image using the existing Firebase function
-    return await uploadImage(nodeId, file, collectionName);
+    const uploadResult = await uploadImage(nodeId, file, collectionName);
+    
+    // After successful upload, update the document with has_image=true
+    const db = getFirestore();
+    const docRef = doc(db, collectionName, nodeId);
+    await updateDoc(docRef, {
+      has_image: true
+    });
+    
+    console.log(`Updated document ${nodeId} in collection ${collectionName} with has_image=true`);
+    
+    return uploadResult;
   } catch (error) {
     console.error('Error generating and uploading image:', error);
     throw error;

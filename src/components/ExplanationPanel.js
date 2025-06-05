@@ -1,14 +1,16 @@
-// src/components/ExplanationPanel.js - With streaming support
+// src/components/ExplanationPanel.js - With streaming support and style selection
 import React, { useState, useEffect, useRef } from 'react';
 import { X, BookOpen } from 'lucide-react';
 import explanationService from '../services/explanationService';
 
-const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' }) => {
+const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes', currentStyle = 'standard' }) => {
   const [explanation, setExplanation] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [streaming, setStreaming] = useState(false);
   const [lastChunk, setLastChunk] = useState('');
+  const [activeStyle, setActiveStyle] = useState(currentStyle);
+  const [fetchingExplanation, setFetchingExplanation] = useState(false);
   const panelRef = useRef(null);
   const explanationEndRef = useRef(null);
   const lastUpdateRef = useRef(null);
@@ -27,30 +29,51 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
     };
   }, [isOpen, onClose]);
   
+  // Update activeStyle when currentStyle prop changes
+  useEffect(() => {
+    if (currentStyle !== activeStyle) {
+      setActiveStyle(currentStyle);
+    }
+  }, [currentStyle]);
+  
   // Reset explanation when panel is closed
   useEffect(() => {
     if (!isOpen) {
       setExplanation('');
       setError(null);
       setStreaming(false);
+      setFetchingExplanation(false);
     }
   }, [isOpen]);
-  
+  /*
   // Scroll to bottom when new content is streamed
   useEffect(() => {
     if (streaming && explanationEndRef.current) {
       explanationEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [explanation, streaming]);
-  
-  // Fetch explanation when panel is opened
+  */
+ 
+  // Fetch explanation when panel is opened or style changes
   useEffect(() => {
-    if (isOpen && nodeData) {
-      setLoading(true);
-      setExplanation('');
-      setError(null);
-      setStreaming(true);
-      
+    // Only fetch if panel is open, we have node data, and we're not already fetching
+    if (isOpen && nodeData && !fetchingExplanation) {
+      loadExplanation(activeStyle);
+    }
+  }, [isOpen, nodeData, activeStyle]);
+
+  // Function to load explanation with a specific style
+  const loadExplanation = async (style) => {
+    // Set flags to prevent duplicate calls
+    setFetchingExplanation(true);
+    setLoading(true);
+    setExplanation('');
+    setError(null);
+    setStreaming(true);
+    
+    console.log(`ExplanationPanel: Loading explanation with style: ${style}`);
+    
+    try {
       // Add collection name to the node data for parent fetching
       const nodeWithCollection = {
         ...nodeData,
@@ -66,21 +89,26 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
         lastUpdateRef.current = Date.now();
       };
       
-      explanationService.fetchExplanationStream(nodeWithCollection, handleChunk)
-        .then(() => {
-          // Stream completed
-          setStreaming(false);
-        })
-        .catch(err => {
-          console.error('Error fetching explanation:', err);
-          setError('Failed to load explanation. Please try again.');
-          setStreaming(false);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      await explanationService.fetchExplanationStream(nodeWithCollection, handleChunk, style);
+      
+      // Stream completed
+      setStreaming(false);
+    } catch (err) {
+      console.error('Error fetching explanation:', err);
+      setError('Failed to load explanation. Please try again.');
+      setStreaming(false);
+    } finally {
+      setLoading(false);
+      setFetchingExplanation(false);
     }
-  }, [isOpen, nodeData, collectionName]);
+  };
+
+  // Switch between explanation styles
+  const handleStyleChange = (style) => {
+    if (style !== activeStyle) {
+      setActiveStyle(style);
+    }
+  };
 
   // Format text with special handling for Markdown-like patterns
   // including ### headings, ** bold text, and more
@@ -159,6 +187,32 @@ const ExplanationPanel = ({ isOpen, onClose, nodeData, collectionName = 'nodes' 
               aria-label="Close explanation panel"
             >
               <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Style Selector */}
+          <div className="flex space-x-2 mb-6">
+            <button 
+              onClick={() => handleStyleChange('standard')}
+              className={`px-4 py-2 rounded-md transition ${
+                activeStyle === 'standard' 
+                  ? 'bg-indigo-600 text-white' 
+                  : 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-100'
+              }`}
+              disabled={fetchingExplanation}
+            >
+              Standard Explanation
+            </button>
+            <button 
+              onClick={() => handleStyleChange('simple')}
+              className={`px-4 py-2 rounded-md transition ${
+                activeStyle === 'simple' 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-white text-stone-700 border border-stone-300 hover:bg-stone-100'
+              }`}
+              disabled={fetchingExplanation}
+            >
+              Simple English
             </button>
           </div>
           

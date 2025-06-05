@@ -2,23 +2,62 @@
 import { getNode } from '../firebase';
 
 /**
- * Fetches the appropriate explanation prompt based on node type
+ * Fetches the appropriate explanation prompt based on node type and explanation style
  * @param {string} nodeType - The type of node (question, thesis, etc.)
+ * @param {string} style - The explanation style ('standard' or 'simple')
  * @returns {Promise<string>} - The prompt template
  */
-export const getExplanationPrompt = async (nodeType) => {
+export const getExplanationPrompt = async (nodeType, style = 'standard') => {
   try {
-    const promptPath = `/prompts/explanation/explain_${nodeType}.txt`;
-    const response = await fetch(promptPath);
+    // Construct the path based on style
+    const stylePrefix = style === 'simple' ? 'simple_' : '';
+    const promptPath = `/prompts/explanation/${stylePrefix}explain_${nodeType}.txt`;
+    console.log('Style:', style, 'Prompt path:', promptPath); // Fixed variable name
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch prompt: ${response.status}`);
+    try {
+      const response = await fetch(promptPath);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch prompt: ${response.status}`);
+      }
+      
+      return await response.text();
+    } catch (fetchError) {
+      // If simple style prompt is not found, fall back to standard prompt
+      if (style === 'simple') {
+        console.warn(`Simple explanation prompt not found for ${nodeType}, falling back to standard`);
+        
+        // Use a fallback generic simple prompt instead of making another API call
+        return getGenericPrompt(nodeType, 'standard');
+      }
+      
+      // For standard style, fall back to generic prompt
+      return getGenericPrompt(nodeType, 'standard');
     }
-    
-    return await response.text();
   } catch (error) {
-    console.error('Error fetching explanation prompt:', error);
-    // Fallback to a generic prompt if specific one isn't available
+    console.error('Error in getExplanationPrompt:', error);
+    return getGenericPrompt(nodeType, style);
+  }
+};
+
+/**
+ * Returns a generic prompt template based on style
+ * @param {string} nodeType - The type of node
+ * @param {string} style - The explanation style
+ * @returns {string} - A generic prompt template
+ */
+const getGenericPrompt = (nodeType, style) => {
+  if (style === 'simple') {
+    return `Explain this philosophical node of type "${nodeType}" in simple, everyday language that's easy for anyone to understand:
+Summary: {{summary}}
+Content: {{content}}
+Parent Node Summary: {{parent_summary}}
+Parent Node Content: {{parent_content}}
+Grandparent Node Summary: {{grandparent_summary}}
+Grandparent Node Content: {{grandparent_content}}
+
+Please provide a clear, jargon-free explanation using simple words and everyday examples.`;
+  } else {
     return `Explain this philosophical node of type "${nodeType}" with the following information:
 Summary: {{summary}}
 Content: {{content}}
@@ -94,12 +133,15 @@ const fetchParentNodeData = async (parentId, collectionName) => {
  * Fetches an explanation for the node with streaming support
  * @param {Object} nodeData - The node data
  * @param {Function} onChunk - Callback function to handle incoming text chunks
+ * @param {string} explanationStyle - The style of explanation ('standard' or 'simple')
  * @returns {Promise<string>} - The complete explanation text
  */
-export const fetchExplanationStream = async (nodeData, onChunk) => {
+export const fetchExplanationStream = async (nodeData, onChunk, explanationStyle = 'standard') => {
   try {
     const { node_type: nodeType, parent_id: parentId } = nodeData;
     const collectionName = nodeData.collectionName || 'nodes';
+    
+    console.log(`Generating explanation for node type: ${nodeType} with style: ${explanationStyle}`);
     
     // Initialize parent and grandparent data
     let parentData = null;
@@ -115,8 +157,8 @@ export const fetchExplanationStream = async (nodeData, onChunk) => {
       }
     }
     
-    // Get the appropriate prompt template
-    const promptTemplate = await getExplanationPrompt(nodeType);
+    // Get the appropriate prompt template with the requested style
+    const promptTemplate = await getExplanationPrompt(nodeType, explanationStyle);
     
     // Fill the template with node, parent, and grandparent data
     const filledPrompt = fillPromptTemplate(promptTemplate, nodeData, parentData, grandparentData);
@@ -152,14 +194,16 @@ const callOpenAIAPIStream = async (prompt, onChunk) => {
   try {
     console.log('Calling OpenAI API with streaming and prompt length:', prompt.length);
     
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    //const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('http://mike:8080/v1/chat/completions', {
+
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'deepseek/deepseek-r1',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         stream: true // Enable streaming
@@ -218,14 +262,17 @@ const callOpenAIAPIStream = async (prompt, onChunk) => {
 
 /**
  * For backward compatibility - non-streaming version
+ * @param {Object} nodeData - The node data
+ * @param {string} explanationStyle - The style of explanation ('standard' or 'simple')
+ * @returns {Promise<string>} - The complete explanation text
  */
-export const fetchExplanation = async (nodeData) => {
+export const fetchExplanation = async (nodeData, explanationStyle = 'standard') => {
   let fullText = '';
   
   try {
     await fetchExplanationStream(nodeData, (chunk) => {
       fullText += chunk;
-    });
+    }, explanationStyle);
     
     return fullText;
   } catch (error) {

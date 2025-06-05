@@ -129,7 +129,7 @@ const NodeCreationInterface = ({ node, collectionName, onSuccess }) => {
       {/* Node Type Selection */}
       <div className="mb-4">
         <label className="block text-sm font-medium text-stone-700 mb-1">
-          Node Type:
+          Generate a new child node of type:
         </label>
         <div className="relative">
           <button
@@ -181,7 +181,7 @@ const NodeCreationInterface = ({ node, collectionName, onSuccess }) => {
           ref={textAreaRef}
           value={userInput}
           onChange={handleInputChange}
-          placeholder="Enter your philosophical ideas here..."
+          placeholder="Enter your philosophical idea here... It will be restructured with AI and merged with the graph if you commit the preview."
           disabled={loading || candidateNode}
           className="w-full px-4 py-3 bg-stone-50 border border-stone-200 rounded-md resize-none min-h-[120px] disabled:opacity-60 disabled:cursor-not-allowed"
           rows={4}

@@ -1,0 +1,4 @@
+Given all and only the views on the question {question} in the file, as well as all and only the reasons, objections and replies in the file exclusively, which of the below are the three philosophically strongest answers to the question {question}. Do not consider anything not in the file. Please output exactly which of the views it is from the below in exactly the same format as below and nothing else. You can consider the presence of an image as indication of preference for that position.
+
+{thesis_list}
+{user_modified_node_data}

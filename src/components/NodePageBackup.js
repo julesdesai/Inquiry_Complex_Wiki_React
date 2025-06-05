@@ -1,9 +1,9 @@
+// Updated NodePage.js with ancestral chain implementation
 import React, { useState, useEffect } from 'react';
 import { Upload, X, ChevronRight, ArrowUp, ArrowDown, BookOpen, Layers, Box, HelpCircle, 
          MessageCircle, GitBranch, ArrowRight, Clipboard, Image, Star, AlertCircle, 
-         Plus, Cpu, Users, ChevronLeft, Brain } from 'lucide-react';
+         Plus, Cpu, Users, ChevronLeft } from 'lucide-react';
 import { getNode, getChildNodes, uploadImage, getNodeImages, updateHumanRating, getUserRating } from '../firebase';
-import { getUserModifiedNodes } from '../services/thisHouseBelievesService';
 import { getFilledPromptTemplate } from '../services/promptService';
 import { generateAndUploadImage } from '../services/imageGenerationService';
 import aiRatingService from '../services/aiRatingService';
@@ -12,7 +12,7 @@ import ExplanationPanel from './ExplanationPanel';
 import RatingSlider from './RatingSlider';
 import NodeCreationInterface from './NodeCreationInterface';
 import SourceTag from './SourceTag';
-import thisHouseBelievesService from '../services/thisHouseBelievesService';
+import { getUserModifiedNodes } from '../firebase';
 
 // New component for displaying the ancestral chain
 const AncestralChain = ({ ancestors }) => {
@@ -88,15 +88,10 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
   const [showExplanationPanel, setShowExplanationPanel] = useState(false);
   const [currentExplanationStyle, setCurrentExplanationStyle] = useState('standard');
   const [pendingExplanationRequest, setPendingExplanationRequest] = useState(false);
-  
-  // New state for user modified nodes
+
   const [modifiedNodes, setModifiedNodes] = useState([]);
   const [loadingModifiedNodes, setLoadingModifiedNodes] = useState(false);
   const [showModifiedNodesModal, setShowModifiedNodesModal] = useState(false);
-
-  const [houseBelieves, setHouseBelieves] = useState(null);
-  const [loadingHouseBelieves, setLoadingHouseBelieves] = useState(false);
-  const [houseBelievesError, setHouseBelievesError] = useState(null);
 
   // Reset states when nodeId changes
   useEffect(() => {
@@ -200,42 +195,6 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
     }
   };
 
-  // New function to load user modified nodes
-  const loadModifiedNodes = async () => {
-    setLoadingModifiedNodes(true);
-    try {
-      console.log(`Loading user-modified nodes from ${collectionName}`);
-      const nodes = await getUserModifiedNodes(collectionName);
-      setModifiedNodes(nodes);
-      setShowModifiedNodesModal(true);
-    } catch (error) {
-      console.error('Error loading modified nodes:', error);
-      // Show error toast
-      setToastMessage("Failed to load modified nodes");
-      setToastIcon(() => <AlertCircle className="w-4 h-4" />);
-      setShowToast(true);
-    } finally {
-      setLoadingModifiedNodes(false);
-    }
-  };
-
-  const generateHouseBelieves = async () => {
-    try {
-      setLoadingHouseBelieves(true);
-      setHouseBelievesError(null);
-      
-      // Generate the beliefs using the service
-      const beliefs = await thisHouseBelievesService.generateThisHouseBelieves(modifiedNodes, collectionName);
-      setHouseBelieves(beliefs);
-      
-    } catch (error) {
-      console.error('Error generating This House Believes:', error);
-      setHouseBelievesError(error.message);
-    } finally {
-      setLoadingHouseBelieves(false);
-    }
-  };
-
   // Handle explanation button clicks
   const handleExplanationClick = (style) => {
     console.log(`NodePage: Setting explanation style to ${style}`);
@@ -243,6 +202,25 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
     setCurrentExplanationStyle(style);
     setPendingExplanationRequest(true);
   };
+
+  // Add a function to load modified nodes
+const loadModifiedNodes = async () => {
+  setLoadingModifiedNodes(true);
+  try {
+    console.log(`Loading user-modified nodes from ${collectionName}`);
+    const nodes = await getUserModifiedNodes(collectionName);
+    setModifiedNodes(nodes);
+    setShowModifiedNodesModal(true);
+  } catch (error) {
+    console.error('Error loading modified nodes:', error);
+    // Show error toast
+    setToastMessage("Failed to load modified nodes");
+    setToastIcon(() => <AlertCircle className="w-4 h-4" />);
+    setShowToast(true);
+  } finally {
+    setLoadingModifiedNodes(false);
+  }
+};
 
   // Load user's rating and check for AI rating when node loads
   useEffect(() => {
@@ -648,6 +626,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
         </div>
 
         {/* Navigation with Ancestral Chain */}
+      
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-stone-100">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -686,14 +665,6 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
               ) : null}
             </div>
           </div>
-          
-          {/* Ancestral Chain - replaces the mobile view for parent summary */}
-          {loadingAncestors ? (
-            <div className="mt-2 text-stone-500 text-sm">Loading ancestors...</div>
-          ) : (
-            <AncestralChain ancestors={ancestors} />
-          )}
-        </div>
 
         {/* Content */}
         <div className="bg-white rounded-lg shadow-sm p-8 mb-6 border border-stone-100">
@@ -762,8 +733,8 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
           </div>
         </div>
 
-{/* Image Gallery */}
-<div className="bg-white rounded-lg shadow-sm p-8 mb-6 border border-stone-100">
+        {/* Image Gallery */}
+        <div className="bg-white rounded-lg shadow-sm p-8 mb-6 border border-stone-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
             <h2 className="text-2xl font-semibold text-stone-800">Image Gallery</h2>
             <div className="flex flex-wrap gap-2 w-full sm:w-auto">
@@ -984,7 +955,23 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
         </div>
       )}
       
-      {/* User Modified Nodes Modal */}
+      {/* Toast Notification */}
+      <Toast 
+        show={showToast} 
+        onClose={() => setShowToast(false)}
+        message={toastMessage}
+        icon={toastIcon}
+      />
+      
+      {/* Explanation Panel */}
+      <ExplanationPanel
+        isOpen={showExplanationPanel}
+        onClose={() => setShowExplanationPanel(false)}
+        nodeData={{...node, collectionName}} // Pass collection name to explanation panel
+        collectionName={collectionName}
+        currentStyle={currentExplanationStyle} // Pass the selected explanation style
+      />
+
       {/* User Modified Nodes Modal */}
       {showModifiedNodesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -992,78 +979,13 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-stone-800">User Modified Nodes</h3>
               <button
-                onClick={() => {
-                  setShowModifiedNodesModal(false);
-                  // Reset house believes states when closing the modal
-                  setHouseBelieves(null);
-                  setHouseBelievesError(null);
-                }}
+                onClick={() => setShowModifiedNodesModal(false)}
                 className="text-stone-500 hover:text-stone-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
-            {/* This House Believes button and section */}
-            <div className="mb-6 border-b border-stone-200 pb-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-md font-medium text-stone-700">Generate Consensus Statements</h4>
-                <button
-                  onClick={generateHouseBelieves}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition"
-                  disabled={loadingHouseBelieves || modifiedNodes.length === 0}
-                >
-                  <Brain className="w-4 h-4" />
-                  {loadingHouseBelieves ? 'Analyzing...' : 'This House Believes'}
-                </button>
-              </div>
-              
-              {/* This House Believes Results */}
-              {loadingHouseBelieves ? (
-                <div className="mt-4 text-center py-8 text-stone-500 bg-stone-50 rounded-lg">
-                  <div className="animate-pulse flex justify-center mb-3">
-                    <Brain className="w-8 h-8 text-purple-500" />
-                  </div>
-                  <p>Analyzing user modification data...</p>
-                  <p className="text-sm text-stone-400 mt-2">Generating consensus statements based on user ratings and modifications</p>
-                </div>
-              ) : houseBelievesError ? (
-                <div className="mt-4 bg-red-50 border border-red-200 text-red-700 p-4 rounded-md">
-                  <p className="font-medium">Error generating consensus statements:</p>
-                  <p>{houseBelievesError}</p>
-                </div>
-              ) : houseBelieves ? (
-                <div className="mt-4 bg-purple-50 border border-purple-100 rounded-lg p-5">
-                  <h4 className="text-lg font-medium mb-3 text-purple-800">This House Believes:</h4>
-                  <div className="space-y-4">
-                    {houseBelieves.map((belief, index) => (
-                      <div key={index} className="bg-white rounded-md p-4 border border-purple-200 shadow-sm">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-medium">
-                            {index + 1}
-                          </div>
-                          <h5 className="font-medium text-purple-900">{belief.title}</h5>
-                        </div>
-                        <p className="text-stone-700">{belief.description}</p>
-                        <div className="mt-2 flex items-center gap-2 text-sm text-stone-500">
-                          <span className="bg-purple-100 px-2 py-0.5 rounded-full text-purple-700">
-                            Confidence: {belief.confidence}%
-                          </span>
-                          {belief.supporting_nodes && (
-                            <span className="bg-stone-100 px-2 py-0.5 rounded-full">
-                              Based on {belief.supporting_nodes} nodes
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
 
-            {/* Modified Nodes List */}
-            <h4 className="text-md font-medium text-stone-700 mb-3">User Modified Nodes ({modifiedNodes.length})</h4>
             {loadingModifiedNodes ? (
               <div className="text-center py-10 text-stone-500">
                 Loading modified nodes...
@@ -1092,8 +1014,7 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
                             {node.humanRatingCount} {node.humanRatingCount === 1 ? 'rating' : 'ratings'}
                           </span>
                         )}
-                        {/* Display badge for nodes with images */}
-                        {node.has_image && (
+                        {node.hasImages && (
                           <span className="text-xs text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Image className="w-3 h-3" />
                             Images
@@ -1119,23 +1040,6 @@ const NodePage = ({ nodeId, onNavigate, collectionName = 'nodes' }) => {
           </div>
         </div>
       )}
-      
-      {/* Toast Notification */}
-      <Toast 
-        show={showToast} 
-        onClose={() => setShowToast(false)}
-        message={toastMessage}
-        icon={toastIcon}
-      />
-      
-      {/* Explanation Panel */}
-      <ExplanationPanel
-        isOpen={showExplanationPanel}
-        onClose={() => setShowExplanationPanel(false)}
-        nodeData={{...node, collectionName}} // Pass collection name to explanation panel
-        collectionName={collectionName}
-        currentStyle={currentExplanationStyle} // Pass the selected explanation style
-      />
     </div>
   );
 };

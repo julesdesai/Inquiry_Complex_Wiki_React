@@ -16,4 +16,4 @@ Please provide a clear explanation of:
 4. What makes this a challenging or interesting question
 5. How this question connects to broader philosophical themes
 
-Keep your explanation accessible to someone with basic philosophical knowledge, but include depth and nuance.
+Keep your explanation accessible to someone with basic philosophical knowledge, but include depth and nuance. You should provide an explanation as if it were Wikipedia Simple English.
