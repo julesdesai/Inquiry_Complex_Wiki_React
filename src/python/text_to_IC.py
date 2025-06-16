@@ -15,14 +15,17 @@ class InquiryComplexExtractor:
     Extracts inquiry complexes from text using a dialectical approach.
     
     An inquiry complex is a tree-structured graph with dialectical structure,
-    consisting of nodes of type: question, thesis, reason, antithesis, synthesis, direct_reply
+    consisting of nodes of type: text, question, thesis, reason, antithesis, synthesis, direct_reply
     """
     
     def __init__(self, 
                  text_passage: str,
-                 max_depth: int = 3,
+                 max_depth: int = 2,
                  top_n_questions: int = 3,
-                 save_dir: str = "./temp"):
+                 save_dir: str = "./temp",
+                 text_name: str = None,
+                 text_description: str = None,
+                 text_author: str = None):
         """
         Initialize the inquiry complex extractor.
         
@@ -31,18 +34,24 @@ class InquiryComplexExtractor:
             max_depth: Maximum depth for dialectical exploration
             top_n_questions: Number of top questions to explore
             save_dir: Directory to save results
+            text_name: Name for the root text node
+            text_description: Description for the root text node
+            text_author: Author for the root text node
         """
         self.text_passage = text_passage
         self.max_depth = max_depth
         self.top_n_questions = top_n_questions
         self.save_dir = save_dir
+        self.text_name = text_name or "Uploaded Text"
+        self.text_description = text_description or "User uploaded text for analysis"
+        self.text_author = text_author or "Unknown Author"
         
         # Initialize graph structure
         self.graph = {}
         self.edges = []
         
         # Load prompts from the original prompts directory
-        self.prompts = self._load_text_prompts("./prompts/text")
+        self.prompts = self._load_text_prompts("../../public/prompts/text_to_IC")
         
         # Create save directory if it doesn't exist
         if not os.path.exists(save_dir):
@@ -68,7 +77,7 @@ class InquiryComplexExtractor:
                     prompts[prompt_type] = file.read().strip()
             return prompts
         except Exception as e:
-            raise Exception(f"Error loading prompts from {prompt_dir}{file}: {e}")
+            raise Exception(f"Error loading prompts from {prompt_dir}: {e}")
     
     def extract_inquiry_complex(self) -> Dict:
         """
@@ -78,6 +87,17 @@ class InquiryComplexExtractor:
             Dict: The complete inquiry complex as a JSON-serializable dictionary
         """
         logging.info("Starting inquiry complex extraction")
+        
+        # Step 0: Create root text node
+        logging.info("Step 0: Creating root text node")
+        text_root_id = self.add_node(
+            summary=self.text_name,
+            content=self.text_description,
+            node_type="text",
+            parent_id=None,
+            depth=0,
+            author=self.text_author
+        )
         
         # Step 1: Extract questions from text
         logging.info("Step 1: Extracting questions from text")
@@ -102,13 +122,13 @@ class InquiryComplexExtractor:
             question_text = question_data[1]  # Get the actual question text
             logging.info(f"Building dialectical tree for question: {question_text[:100]}...")
             
-            # Add question node to graph
+            # Add question node to graph with text root as parent
             question_id = self.add_node(
                 summary=question_data[0],  # summary
                 content=question_text,
                 node_type="question",
-                parent_id=None,
-                depth=0
+                parent_id=text_root_id,  # Make text node the parent
+                depth=1  # Questions are now at depth 1
             )
             
             # Build dialectical tree for this question
@@ -124,14 +144,14 @@ class InquiryComplexExtractor:
             response = generate_completion(prompt, "")
             questions = parse_llm_output(response)
             logging.info(f"Extracted {len(questions) if questions else 0} questions")
-            print(f"Extracted questions: {questions}")
+            #print(f"Extracted questions: {questions}")
             return questions
         except Exception as e:
             logging.error(f"Error extracting questions: {e}")
             return None
     
     def rank_questions(self, questions: List[Tuple[str, str]]) -> Optional[List[Tuple[str, str, int]]]:
-        """Rank questions based on how well they're addressed in the text"""
+        """Rank questions based on hoxw well they're addressed in the text"""
         try:
             # Format questions for ranking prompt
             
@@ -225,7 +245,7 @@ class InquiryComplexExtractor:
                     content=thesis[1],
                     node_type="thesis",
                     parent_id=question_id,
-                    depth=1
+                    depth=2  # Updated depth: text(0) -> question(1) -> thesis(2)
                 )
                 thesis_ids.append(thesis_id)
             
@@ -247,7 +267,7 @@ class InquiryComplexExtractor:
                         )
             
             # Step 6+: Continue dialectical process
-            self._continue_dialectical_process(thesis_ids, 2)
+            self._continue_dialectical_process(thesis_ids, 3)  # Updated starting depth
             
         except Exception as e:
             logging.error(f"Error building dialectical tree for question {question_id}: {e}")
@@ -356,7 +376,18 @@ class InquiryComplexExtractor:
             response = generate_completion(prompt, "")
             return parse_llm_output(response)
         except Exception as e:
-            logging.error(f"Error generating direct replies: {e}")
+            error_pos = None
+            if hasattr(e, 'args') and e.args and isinstance(e.args[0], str):
+                error_msg = str(e.args[0])
+                # Try to find the error message in the prompt string
+                if 'prompt' in locals():
+                    idx = prompt.find(error_msg)
+                    if idx != -1:
+                        error_pos = idx
+            if error_pos is not None:
+                logging.error(f"Error generating direct replies: {e} (error at char {error_pos} in prompt)")
+            else:
+                logging.error(f"Error generating direct replies: {e}")
             return None
     
     def generate_synthesis(self, thesis: Tuple[str, str], antithesis: Tuple[str, str]) -> Optional[List[Tuple[str, str]]]:
@@ -373,7 +404,7 @@ class InquiryComplexExtractor:
             logging.error(f"Error generating synthesis: {e}")
             return None
     
-    def add_node(self, summary: str, content: str, node_type: str, parent_id: Optional[str], depth: int) -> str:
+    def add_node(self, summary: str, content: str, node_type: str, parent_id: Optional[str], depth: int, author: str = None) -> str:
         """Add a new node to the graph"""
         node_id = str(uuid.uuid4())
         
@@ -388,8 +419,16 @@ class InquiryComplexExtractor:
             "identical_to": None
         }
         
-        # Mark central questions
-        if node_type == "question" and parent_id is None:
+        # Add author field for text nodes
+        if author and node_type == "text":
+            self.graph[node_id]["author"] = author
+        
+        # Mark root text node
+        if node_type == "text" and parent_id is None:
+            self.graph[node_id]["is_root_text"] = True
+        
+        # Mark central questions (now children of root text)
+        if node_type == "question" and depth == 1:
             self.graph[node_id]["is_central_question"] = True
         
         # Add edge if there's a parent
@@ -431,32 +470,40 @@ class InquiryComplexExtractor:
 
 # Example usage
 if __name__ == "__main__":
+    import sys
     
+    if len(sys.argv) < 2:
+        print("Usage: python text_to_IC.py <input_file_path> [name] [description] [author]")
+        sys.exit(1)
     
-
-    # Create extractor
-    with open(f"input_texts/{input_text}", "r") as f:
-        input_text = f.read()
-    extractor = InquiryComplexExtractor(
-        text_passage=input_text,
-        max_depth=3,
-        top_n_questions=3
-    )
+    input_file_path = sys.argv[1]
+    text_name = sys.argv[2] if len(sys.argv) > 2 else None
+    text_description = sys.argv[3] if len(sys.argv) > 3 else None
+    text_author = sys.argv[4] if len(sys.argv) > 4 else None
     
-    # Extract inquiry complex
-    inquiry_complex = extractor.extract_inquiry_complex()
-    
-    # Print results
-    print("=== INQUIRY COMPLEX EXTRACTION RESULTS ===")
-    print(f"Statistics: {extractor.get_stats()}")
-    print("\nFirst few nodes:")
-    for i, (node_id, node_data) in enumerate(inquiry_complex.items()):
-        if i < 5:  # Show first 5 nodes
-            print(f"Node {node_id}:")
-            print(f"  Type: {node_data['node_type']}")
-            print(f"  Summary: {node_data['summary']}")
-            print(f"  Depth: {node_data['depth']}")
-            print()
-    
-    # Save to file
-    extractor.save_to_file()
+    try:
+        # Create extractor
+        with open(input_file_path, "r", encoding='utf-8') as f:
+            text_content = f.read()
+            
+        extractor = InquiryComplexExtractor(
+            text_passage=text_content,
+            max_depth=3,
+            top_n_questions=3,
+            text_name=text_name,
+            text_description=text_description,
+            text_author=text_author
+        )
+        
+        # Extract inquiry complex
+        inquiry_complex = extractor.extract_inquiry_complex()
+        
+        # Output JSON for the server to parse
+        print(f"JSON_OUTPUT:{json.dumps(inquiry_complex)}")
+        
+        # Also print stats for debugging (these will be ignored by the server)
+        print(f"STATS: {extractor.get_stats()}", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"ERROR: {str(e)}", file=sys.stderr)
+        sys.exit(1)
