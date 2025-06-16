@@ -5,6 +5,7 @@ FROM node:18-slim
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
+    python3-venv \
     python3-dev \
     build-essential \
     curl \
@@ -16,9 +17,10 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 # Set working directory
 WORKDIR /app
 
-# Copy and install Python requirements
+# Copy and install Python requirements with more robust approach
 COPY requirements.txt .
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
+RUN python3 -m pip install --upgrade pip setuptools wheel && \
+    python3 -m pip install --no-cache-dir --timeout=1000 -r requirements.txt
 
 # Copy package.json and install Node.js dependencies
 COPY package*.json ./
