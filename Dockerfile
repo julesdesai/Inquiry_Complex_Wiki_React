@@ -10,8 +10,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and create symlinks
-RUN pip3 install --upgrade pip
+# Create symlinks for python commands
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Set working directory
@@ -19,7 +18,7 @@ WORKDIR /app
 
 # Copy and install Python requirements
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir --timeout=1000 -r requirements.txt
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
 # Copy package.json and install Node.js dependencies
 COPY package*.json ./
