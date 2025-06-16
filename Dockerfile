@@ -1,44 +1,35 @@
-# Multi-stage Docker build for full-stack app
-FROM node:18 AS frontend-build
+# Use Node.js 18 as base (includes both Node.js and npm)
+FROM node:18-slim
 
-# Build React frontend
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-# Python backend stage
-FROM python:3.11-slim AS backend
-
-# Install system dependencies
+# Install Python and system dependencies
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    python3-venv \
     gcc \
     g++ \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Create symlinks for python commands
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Set working directory
 WORKDIR /app
 
-# Copy Python requirements and install dependencies
+# Copy and install Python requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# Copy backend code
-COPY server.js .
-COPY src/python/ ./src/python/
-COPY public/prompts/ ./public/prompts/
-
-# Copy built frontend from previous stage
-COPY --from=frontend-build /app/build ./build
-
-# Install Node.js for the Express server
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-RUN apt-get install -y nodejs
-
-# Install Node.js dependencies
+# Copy package.json and install Node.js dependencies
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm install
+
+# Copy all source code
+COPY . .
+
+# Build React frontend
+RUN npm run build
 
 # Expose port
 EXPOSE 3001

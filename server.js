@@ -42,7 +42,8 @@ app.post('/api/process-text', async (req, res) => {
     console.log(`File: ${tempFilePath}`);
     console.log(`Command: python3 ${PYTHON_SCRIPT_PATH} ${tempFilePath} "${name}" "${description || ''}" "${author || ''}"`);
 
-    const pythonProcess = spawn('python3', [PYTHON_SCRIPT_PATH, tempFilePath, name, description || '', author || ''], {
+    const pythonCommand = process.env.NODE_ENV === 'production' ? 'python3' : 'python3';
+    const pythonProcess = spawn(pythonCommand, [PYTHON_SCRIPT_PATH, tempFilePath, name, description || '', author || ''], {
       cwd: path.dirname(PYTHON_SCRIPT_PATH)
     });
 
