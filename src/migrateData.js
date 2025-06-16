@@ -15,6 +15,8 @@ const firebaseConfig = {
     measurementId: "G-T1CEV3YDQY"
   };
 
+const collection_name = 'williams-moral-luck'; // Target Collection name in Firestore
+
 console.log('Initializing Firebase...');
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -39,7 +41,7 @@ const migrateJsonToFirestore = async (jsonData) => {
       
       // Add documents to current batch
       for (const [id, nodeData] of chunk) {
-        const docRef = doc(db, 'williams-moral-luck', id);
+        const docRef = doc(db, collection_name, id);
         batch.set(docRef, nodeData);
       }
       
@@ -94,7 +96,7 @@ const migrateOneByOne = async (jsonData) => {
   for (let i = 0; i < nodes.length; i++) {
     const [id, nodeData] = nodes[i];
     try {
-      const docRef = doc(db, 'williams-moral-luck', id);
+      const docRef = doc(db, collection_name, id);
       await docRef.set(nodeData);
       successCount++;
       
