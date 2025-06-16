@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import NodePage from './components/NodePage';
 import GraphSelection from './components/GraphSelection';
-import { getNode, getRootNodes } from './firebase';
+import TextUpload from './components/TextUpload';
+import { getNode, getRootNodes, getRootNodeFromMetadata } from './firebase';
 
 // Configuration mapping each graph to its known root node ID
 const ROOT_NODE_CONFIG = {
@@ -26,6 +27,7 @@ const App = () => {
   const [currentNodeId, setCurrentNodeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showUpload, setShowUpload] = useState(false);
 
   // For debugging
   useEffect(() => {
@@ -67,8 +69,13 @@ const App = () => {
       try {
         console.log(`Initializing graph: ${selectedGraph}`);
         
-        // Get the root node ID from configuration
-        const rootNodeId = ROOT_NODE_CONFIG[selectedGraph];
+        // Get the root node ID from static config or Firebase
+        let rootNodeId = ROOT_NODE_CONFIG[selectedGraph];
+        
+        // If not in static config, try to get from Firebase metadata
+        if (!rootNodeId) {
+          rootNodeId = await getRootNodeFromMetadata(selectedGraph);
+        }
         
         if (rootNodeId) {
           console.log(`Attempting to use configured root node: ${rootNodeId}`);
@@ -120,17 +127,47 @@ const App = () => {
     setSelectedGraph(graphId);
     setCurrentNodeId(null); // Reset current node
     setError(null);
+    setShowUpload(false);
   };
 
   const handleBackToGraphSelection = () => {
     setSelectedGraph(null);
     setCurrentNodeId(null);
     setError(null);
+    setShowUpload(false);
     localStorage.removeItem('selectedGraph');
   };
 
+  const handleShowUpload = () => {
+    setShowUpload(true);
+  };
+
+  const handleUploadComplete = (uploadResult) => {
+    const { collectionName, rootNodeId } = uploadResult;
+    
+    // Navigate to the newly uploaded collection
+    setSelectedGraph(collectionName);
+    setCurrentNodeId(rootNodeId);
+    setShowUpload(false);
+    setLoading(false);
+    
+    // Save selected graph to localStorage for browser session persistence
+    localStorage.setItem('selectedGraph', collectionName);
+    
+    console.log(`Upload complete, navigating to collection: ${collectionName}`);
+  };
+
+  const handleCancelUpload = () => {
+    setShowUpload(false);
+  };
+
+
+  if (showUpload) {
+    return <TextUpload onUploadComplete={handleUploadComplete} onCancel={handleCancelUpload} />;
+  }
+
   if (!selectedGraph) {
-    return <GraphSelection onSelectGraph={handleSelectGraph} />;
+    return <GraphSelection onSelectGraph={handleSelectGraph} onShowUpload={handleShowUpload} />;
   }
 
   if (loading) {

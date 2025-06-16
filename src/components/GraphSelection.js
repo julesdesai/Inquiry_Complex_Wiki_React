@@ -1,6 +1,7 @@
 // src/components/GraphSelection.js
-import React, { useState } from 'react';
-import { BookOpen, BrainCircuit, Database, FileText } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { BookOpen, BrainCircuit, Database, FileText, Upload } from 'lucide-react';
+import { getAllTextMetadata } from '../firebase';
 
 // Configuration for available question graphs with detailed information
 const QUESTION_GRAPH_CONFIG = {
@@ -70,9 +71,40 @@ const TEXT_GRAPH_CONFIG = {
   }
 };
 
-const GraphSelection = ({ onSelectGraph }) => {
+const GraphSelection = ({ onSelectGraph, onShowUpload }) => {
   const [error, setError] = useState(null);
+  const [uploadedTexts, setUploadedTexts] = useState([]);
   
+  // Load uploaded texts from Firebase on mount
+  useEffect(() => {
+    const loadUploadedTexts = async () => {
+      try {
+        console.log('Loading uploaded texts from Firebase...');
+        const metadataList = await getAllTextMetadata();
+        
+        const uploadedTextsList = metadataList.map(metadata => ({
+          id: metadata.collectionName,
+          name: metadata.name,
+          author: metadata.author,
+          description: metadata.description,
+          icon: <FileText className="w-6 h-6" />,
+          createdAt: metadata.createdAt
+        }));
+        
+        // Sort by creation date (newest first)
+        uploadedTextsList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        setUploadedTexts(uploadedTextsList);
+        console.log(`Loaded ${uploadedTextsList.length} uploaded texts from Firebase`);
+      } catch (error) {
+        console.error('Error loading uploaded texts from Firebase:', error);
+        setError('Failed to load uploaded texts');
+      }
+    };
+    
+    loadUploadedTexts();
+  }, []);
+
   // Create question graphs array from config
   const questionGraphs = Object.entries(QUESTION_GRAPH_CONFIG).map(([id, config]) => ({
     id,
@@ -137,6 +169,20 @@ const GraphSelection = ({ onSelectGraph }) => {
           
           {renderGraphGrid(questionGraphs, "Questions")}
           {renderGraphGrid(textGraphs, "Texts")}
+          {uploadedTexts.length > 0 && renderGraphGrid(uploadedTexts, "User Uploaded Texts")}
+          
+          <div className="mt-12 pt-8 border-t border-stone-200">
+            <div className="text-center">
+              <button
+                onClick={onShowUpload}
+                className="inline-flex items-center gap-3 px-8 py-4 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition text-lg font-medium"
+              >
+                <Upload className="w-6 h-6" />
+                Upload New Text
+              </button>
+              <p className="text-stone-500 mt-3">Upload a text file to create a new inquiry complex</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

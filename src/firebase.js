@@ -1,7 +1,7 @@
 // src/firebase.js
 
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDoc, getDocs, updateDoc, collection, query, where, writeBatch, deleteField } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, getDocs, updateDoc, collection, query, where, writeBatch, deleteField, addDoc, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -107,18 +107,46 @@ export const getNodeImages = async (nodeId, collectionName = 'nodes') => {
 
 // Firestore data migration script
 export const migrateJsonToFirestore = async (jsonData, collectionName = 'nodes') => {
-  const batch = writeBatch(db);
-  
-  for (const [id, nodeData] of Object.entries(jsonData)) {
-    const docRef = doc(db, collectionName, id);
-    batch.set(docRef, nodeData);
-  }
-  
   try {
+    console.log(`🔥 FIREBASE: Starting migration to collection: ${collectionName}`);
+    console.log(`📊 Data to migrate: ${Object.keys(jsonData).length} documents`);
+    console.log(`🔗 Database instance:`, db ? 'Connected' : 'Not connected');
+    
+    if (!db) {
+      throw new Error('Firebase database not initialized');
+    }
+    
+    const batch = writeBatch(db);
+    let docCount = 0;
+    
+    for (const [id, nodeData] of Object.entries(jsonData)) {
+      console.log(`📋 Processing document ${docCount + 1}: ${id}`);
+      console.log(`   Node type: ${nodeData.node_type}`);
+      console.log(`   Summary: ${nodeData.summary?.substring(0, 50)}...`);
+      
+      const docRef = doc(db, collectionName, id);
+      batch.set(docRef, nodeData);
+      docCount++;
+    }
+    
+    console.log(`🚀 Committing batch with ${docCount} documents to ${collectionName}`);
+    console.log(`📍 Firebase project: ${db.app.options.projectId}`);
+    
     await batch.commit();
-    console.log(`Migration to ${collectionName} successful`);
+    console.log(`✅ FIREBASE: Migration to ${collectionName} successful - ${docCount} documents uploaded`);
   } catch (error) {
-    console.error('Migration failed:', error);
+    console.error(`❌ FIREBASE: Migration to ${collectionName} failed:`, error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    if (error.code === 'permission-denied') {
+      console.error('🚫 Permission denied - check Firestore security rules');
+    } else if (error.code === 'unavailable') {
+      console.error('🌐 Firebase unavailable - check network connection');
+    }
+    
+    throw error;
   }
 };
 
@@ -589,4 +617,161 @@ if (typeof window !== 'undefined') {
   };
   
   console.log('Rating debugging and migration tools added to window object');
+  
+  window.testFirebaseConnection = async () => {
+    try {
+      console.log('🧪 Testing Firebase connection...');
+      const testRef = doc(db, 'test', 'connection-test');
+      await setDoc(testRef, {
+        timestamp: new Date().toISOString(),
+        message: 'Firebase connection test'
+      });
+      console.log('✅ Firebase connection test successful');
+      return true;
+    } catch (error) {
+      console.error('❌ Firebase connection test failed:', error);
+      return false;
+    }
+  };
+  
+  window.testMetadataStorage = async () => {
+    try {
+      console.log('🧪 Testing metadata storage...');
+      const result = await storeTextMetadata('test-collection', {
+        name: 'Test Text',
+        author: 'Test Author',
+        description: 'Test Description',
+        rootNodeId: 'test-root-123',
+        createdAt: new Date().toISOString(),
+        nodeCount: 5,
+        textLength: 1000
+      });
+      console.log('✅ Metadata storage test result:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Metadata storage test failed:', error);
+      return false;
+    }
+  };
 }
+
+// Text Metadata Management Functions
+
+/**
+ * Stores metadata for an uploaded text in Firebase
+ * @param {string} collectionName - The collection name for the uploaded text
+ * @param {Object} metadata - Metadata object containing name, author, description, etc.
+ * @returns {Promise<boolean>} - Whether the operation was successful
+ */
+export const storeTextMetadata = async (collectionName, metadata) => {
+  try {
+    console.log(`🔥 FIREBASE: Storing metadata for collection: ${collectionName}`);
+    console.log(`📋 Input metadata:`, metadata);
+    
+    const textMetadataRef = doc(db, 'textMetadata', collectionName);
+    console.log(`📍 Firebase path: textMetadata/${collectionName}`);
+    
+    const metadataDoc = {
+      collectionName,
+      name: metadata.name || 'Untitled Text',
+      author: metadata.author || null,
+      description: metadata.description || null,
+      rootNodeId: metadata.rootNodeId,
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      nodeCount: metadata.nodeCount || 0,
+      textLength: metadata.textLength || 0,
+      isUserUploaded: true
+    };
+    
+    console.log(`📄 Document to store:`, metadataDoc);
+    
+    await setDoc(textMetadataRef, metadataDoc);
+    
+    console.log(`✅ FIREBASE: Successfully stored metadata for ${collectionName}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ FIREBASE ERROR storing text metadata for ${collectionName}:`, error);
+    console.error(`Error code:`, error.code);
+    console.error(`Error message:`, error.message);
+    return false;
+  }
+};
+
+/**
+ * Retrieves metadata for a specific uploaded text
+ * @param {string} collectionName - The collection name
+ * @returns {Promise<Object|null>} - The metadata object or null if not found
+ */
+export const getTextMetadata = async (collectionName) => {
+  try {
+    const textMetadataRef = doc(db, 'textMetadata', collectionName);
+    const docSnap = await getDoc(textMetadataRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data();
+    } else {
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error getting text metadata for ${collectionName}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Retrieves all uploaded text metadata
+ * @returns {Promise<Array>} - Array of metadata objects
+ */
+export const getAllTextMetadata = async () => {
+  try {
+    console.log('Fetching all text metadata from Firebase');
+    
+    const textMetadataRef = collection(db, 'textMetadata');
+    const q = query(textMetadataRef, where('isUserUploaded', '==', true));
+    const querySnapshot = await getDocs(q);
+    
+    const metadataList = [];
+    querySnapshot.forEach((doc) => {
+      metadataList.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log(`Found ${metadataList.length} uploaded texts`);
+    return metadataList;
+  } catch (error) {
+    console.error('Error getting all text metadata:', error);
+    return [];
+  }
+};
+
+/**
+ * Gets the root node ID for a collection from Firebase metadata
+ * @param {string} collectionName - The collection name
+ * @returns {Promise<string|null>} - The root node ID or null if not found
+ */
+export const getRootNodeFromMetadata = async (collectionName) => {
+  try {
+    const metadata = await getTextMetadata(collectionName);
+    return metadata ? metadata.rootNodeId : null;
+  } catch (error) {
+    console.error(`Error getting root node for ${collectionName}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Checks if a collection name already exists
+ * @param {string} collectionName - The collection name to check
+ * @returns {Promise<boolean>} - Whether the collection exists
+ */
+export const collectionExists = async (collectionName) => {
+  try {
+    const metadata = await getTextMetadata(collectionName);
+    return metadata !== null;
+  } catch (error) {
+    console.error(`Error checking if collection exists: ${collectionName}`, error);
+    return false;
+  }
+};

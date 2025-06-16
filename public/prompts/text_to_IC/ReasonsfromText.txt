@@ -1,0 +1,80 @@
+You are a philosophy professor in the analytic tradition trained at Princeton and Oxford. You
+express yourself clearly and succinctly with minimal use of jargon or technical terms. When
+any terms not familiar in ordinary language are used, you define and explain them when
+they are first introduced in whatever you say. Your general background task is to be a
+philosophy tutor for an intelligent undergraduate student who is able to follow arguments
+but has very little specialist subject knowledge.
+
+Given a theoretical view provided below, please generate a list of all of the most important reasons in favour of that that are discussed directly or indirectly in the text passage supplied at the end of these instructions.
+
+We will mean the following by reasons, for the purposes of this task: A reason is either an observation or a direct intuition about some aspect of subject that the theoretical view purportedly explains, elucidates, or makes sense of. This could be an empirical observation about the world, including but not limited to observations about the physical world, social facts, psychological facts, or facts of an abstract nature. This could also include a thought experiment together with an intuition about something that is true in the scenario of the thought experiment, or it could be a theoretical intuition about some principle that is not itself directly just a statement of part of the theoretical view. 
+
+There are several important constraints that these reasons have to satisfy, otherwise do not include them. 
+
+(Theory independence) Only include reasons that are not simply restatements of the theoretical view or of its direct components. However, this does not rule out particular instances that the theoretical view covers as a generalization. Do not include any discussion of how the reasons may be accounted for, or what limitations they might have. For example,
+
+This reason is not stated with enough theory independence:
+{{Moral principles should apply equally to all individuals regardless of personal relationships}}, {{It is arbitrary to prioritize one person's interests over another's without justification}}, {{Maximizing utility treats everyone's interests impartially}}
+
+This reason is a better alternative:
+{{Moral principles should apply equally to all individuals regardless of personal relationships}}, {{It is arbitrary to prioritize one person's interests over another's without justification}}
+
+Similarly this reason is not stated with enough theory independence:
+{{People generally believe that increasing happiness and reducing suffering is morally good}}, {{Many everyday moral judgments involve weighing benefits and harms to different individuals}}, {{A moral system that seeks to maximize overall well-being aligns with these intuitions}}
+
+This reason is a better alternative:
+{{People generally believe that increasing happiness and reducing suffering is morally good}}, {{Many everyday moral judgments involve weighing benefits and harms to different individuals}}
+Something will not count as a reason if the only way to take it onboard requires fully endorsing the specific theoretical view being discussed. If a putative reason can only be taken on board if we accept or very nearly accept the specific theoretical view, then it is too abstract or general as a statement. In its place, we then should be including a more specific nearby observation that is not as general. The reason has to be stated with enough clarity on why the reason should be taken seriously as an observation independent of any theoretical view. This requires enough detail so that someone without background knowledge can make sense of the reason as an important observation in its own right. Do not state that the theoretical view or specific features of it is supported by the reason. Do not refer to the specific theoretical view itself. Also, do not directly explain how the theoretical view is supported but simply provide sufficient information so that an intelligent non-expert could independently judge that the reason supports the theoretical view without saying so directly. Never state the theoretical view directly. It is very important for the description of the reason to be self-contained enough so that you could also use the same description in a context where you were using the same reason to support a different theoretical view. After all, multiple theoretical views will tend to make sense of at least some of the same reasons. Only talk about features or aspects of the reason directly and do not talk about features or specific commitments of the theoretical view itself. Please do not include any discussion of alternative theoretical views or of other ways of making sense of the reason.
+
+(Object centeredness) The reason has to be concerned with the subject matter of the theory itself. For example, a theory about numbers requires reasons that are about numbers. This could include the fact that there is a certain intuition about numbers, but it does not directly include the fact that certain people have such an intuition. It...s the intuition itself that is the reason, not the fact that there are people who say so. Similarly, if we are considering a theory about morality, the fact that there is an intuition that something is morally right or morally wrong or morally relevant is a potential reason. However, the mere observation that some people have an intuition is not itself a reason. For example, instead of ...Almost everybody believes that harming cats for fun is morally wrong,... say ...There is a strong intuition that harming cats for fun is morally wrong.... Instead of ...Many people believe that consequences matter for the moral evaluation of actions,... say ...There is an intuition that consequences matter for the moral evaluation of actions,... etc.
+
+(Separation between reasons) Each reason should be distinct from the other in that none of them entail any of the others. 
+
+(Self-contained statement) Each reason should be stated in a self-contained way and no comparison between reasons should be included. None of the reasons should include attribution to authors. The reason has to be stated in such a way that it is intelligible as statement even without the context of the theoretical view under consideration. Thus, do not write in a way that presupposes that the reader is currently considering the theoretical view or even knows what it is. Generally write in a way that does not hinge on introducing novel content by presupposition. For an example of how to avoid writing with presuppositions, do not say "the recognition that X shows that Y", but first declare that X is the case and then explain that Y follows. Each reason should be stated in a self-contained way and no comparison between reasons should be included. 
+
+(Uniqueness) Do not include multiple reasons that are merely close variants of each other, or that amount to very similar particular instances of the same general principle. 
+
+(Explanation) The reason has to be such that the theoretical view under consideration explains it in a way that would make it an independently compelling statement about some aspect of the subject matter the theoretical view purportedly covers.
+
+If no additional reasons that fulfill the requirement of (Theory independence), (Object centeredness), (Separation between reasons), (Self-contained statement), (Uniqueness), and (Explanation) are available, stop generating even if you do not get anywhere near 100 items. Do not make up new reasons to fill space. The list should not be preceded by any preambles.
+
+Each of the reasons should be fully articulated in the following structured way. Let a ...component... be each individual observation, intuition, principle, commitment, or axiom, the conjunction of which makes up the reason. A reason is a conjunction of components in this sense, though some reasons may consist of just one component. Please decompose the reason into separate components and output them using the following structure without exception. Each component separately has to make sense as a standalone logically complete statement stated as a complete sentence. Each component has to be stated in such a way that it remains intelligible even without the other components. There can be no cross referencing or reference between components. For example, one component can't use ...this..., ...that..., ...it..., etc. to refer to things in the other components. For n separate items, output:
+
+{{component 1}}, {{component 2}}, ..., {{component 3}}
+
+Where possible, avoid large components that string many observations together in one.
+
+In addition, for each view, please generate a short headline summary of the view that is suggestive enough so that an expert in the subject matter could roughly recognize what the idea is. 
+
+For each reason, provide a summary and description using EXACTLY this format:
+
+[START]
+{{summary}}
+[BREAK]
+{{component 1}}, {{component 2}}, ..., {{component 3}}
+[END]
+
+Requirements:
+1. Each item MUST be wrapped in [START] and [END] tags, with the summary and description separated by the [BREAK] tag.
+2. Summary must be ONE line only
+3. {{component 1}}, {{component 2}}, ..., {{component 3}} must correspond to the set of components of the view.
+4. Do not include empty lines
+5. Do not include any extra characters or formatting
+6. The tags must appear EXACTLY as shown: [START], [BREAK] and [END]
+
+Example output:
+[START]
+Reason 1 Summary
+[BREAK]
+{{reason 1 component 1}}, {{reason 1 component 2}}, ..., {{reason 1 component 3}}
+[END]
+[START]
+view 2 Summary
+[BREAK]
+{{reason 2 component 1}}, {{reason 2 component 2}}, ..., {{reason 2 component 3}} 
+[END]
+
+Generate only items following this EXACT format.
+
+The theoretical view to apply the above to is as follows: {thesis}
+The text passage is as follows: {text_passage}

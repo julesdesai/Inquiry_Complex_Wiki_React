@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: graph-wiki-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: OPENAI_API_KEY
+        sync: false  # Set this manually in Render dashboard
+    buildCommand: docker build -t graph-wiki .
+    startCommand: node server.js
