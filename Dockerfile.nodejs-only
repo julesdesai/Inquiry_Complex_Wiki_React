@@ -1,0 +1,21 @@
+# Node.js only version (backup option)
+FROM node:18-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json and install Node.js dependencies
+COPY package*.json ./
+RUN npm install
+
+# Copy all source code
+COPY . .
+
+# Build React frontend
+RUN npm run build
+
+# Expose port
+EXPOSE 3001
+
+# Start the Express server
+CMD ["node", "server.js"]
